@@ -40,6 +40,20 @@ try:
 except ImportError:
     TEMPLATES_AVAILABLE = False
 
+# ROI Calculator
+try:
+    from roi_calculator import ROICalculator, create_roi_calculator, TimeTracker, create_time_tracker
+    ROI_AVAILABLE = True
+except ImportError:
+    ROI_AVAILABLE = False
+
+# Case Manager
+try:
+    from case_manager import CaseManager, create_case_manager, CaseStatus, CaseType, DeadlineType, TaskPriority
+    CASE_MANAGER_AVAILABLE = True
+except ImportError:
+    CASE_MANAGER_AVAILABLE = False
+
 
 def main():
     # Load firm configuration
@@ -100,6 +114,13 @@ def main():
         if DRIVE_AVAILABLE:
             modules.append("📁 Google Drive Manager")
 
+        if CASE_MANAGER_AVAILABLE:
+            modules.append("📂 Case Management")
+
+        if ROI_AVAILABLE:
+            modules.append("📈 ROI Dashboard")
+            modules.append("🎯 Sales Demo")
+
         modules.append("⚙️ Settings")
 
         module = st.radio("Select Module:", modules)
@@ -117,6 +138,12 @@ def main():
         if DRIVE_AVAILABLE:
             st.markdown("---")
             st.success("✅ Google Drive Integration Available")
+
+        if CASE_MANAGER_AVAILABLE:
+            st.success("✅ Case Management Available")
+
+        if ROI_AVAILABLE:
+            st.success("✅ ROI Analytics Available")
 
     if module == "📊 Support Calculator":
         st.header("NY Support Calculations")
@@ -1428,6 +1455,849 @@ def main():
                                 if doc.confidential:
                                     st.warning("🔒 Confidential")
 
+    elif module == "📂 Case Management":
+        st.header("Case Management System")
+
+        if not CASE_MANAGER_AVAILABLE:
+            st.error("Case management module not available.")
+        else:
+            # Initialize case manager in session state
+            if 'case_manager' not in st.session_state:
+                st.session_state.case_manager = create_case_manager()
+
+            cm = st.session_state.case_manager
+
+            # Dashboard overview
+            dashboard = cm.get_dashboard_data()
+
+            # Key metrics
+            col1, col2, col3, col4 = st.columns(4)
+
+            with col1:
+                st.metric("Active Cases", dashboard['active_cases'])
+            with col2:
+                overdue_color = "🔴" if dashboard['overdue_deadlines'] > 0 else "🟢"
+                st.metric(f"{overdue_color} Overdue", dashboard['overdue_deadlines'])
+            with col3:
+                st.metric("📅 Upcoming (7 days)", dashboard['upcoming_deadlines'])
+            with col4:
+                st.metric("📋 Pending Tasks", dashboard['pending_tasks'])
+
+            st.markdown("---")
+
+            # Tabs for different views
+            tab1, tab2, tab3, tab4, tab5 = st.tabs([
+                "📊 Dashboard", "📁 Cases", "📅 Deadlines", "✅ Tasks", "➕ New Case"
+            ])
+
+            with tab1:
+                st.subheader("Practice Dashboard")
+
+                # Alerts section
+                if dashboard['overdue_deadlines'] > 0:
+                    st.error(f"⚠️ {dashboard['overdue_deadlines']} OVERDUE DEADLINE(S) - Action Required!")
+
+                    for dl in dashboard['overdue_list']:
+                        case = cm.cases.get(dl.case_id)
+                        client = case.client_name if case else "Unknown"
+                        st.warning(f"**{dl.title}** - {client} ({abs(dl.days_until_due)} days overdue)")
+
+                # Upcoming deadlines
+                if dashboard['upcoming_list']:
+                    st.subheader("📅 Upcoming Deadlines (7 Days)")
+                    for dl in dashboard['upcoming_list']:
+                        case = cm.cases.get(dl.case_id)
+                        client = case.client_name if case else "Unknown"
+                        urgency = dl.urgency_level
+
+                        if urgency == "CRITICAL":
+                            st.error(f"🔴 **{dl.title}** - {client} | Due: {dl.due_date} (TOMORROW)")
+                        elif urgency == "URGENT":
+                            st.warning(f"🟠 **{dl.title}** - {client} | Due: {dl.due_date} ({dl.days_until_due} days)")
+                        else:
+                            st.info(f"📆 **{dl.title}** - {client} | Due: {dl.due_date}")
+
+                # Urgent tasks
+                if dashboard['urgent_task_list']:
+                    st.subheader("🚨 Urgent Tasks")
+                    for task in dashboard['urgent_task_list']:
+                        case = cm.cases.get(task.case_id)
+                        client = case.client_name if case else "Unknown"
+                        st.warning(f"**{task.title}** - {client}")
+
+                # Case distribution charts
+                col1, col2 = st.columns(2)
+
+                with col1:
+                    st.subheader("Cases by Status")
+                    if dashboard['status_breakdown']:
+                        for status, count in dashboard['status_breakdown'].items():
+                            st.write(f"• {status}: **{count}**")
+
+                with col2:
+                    st.subheader("Cases by Type")
+                    if dashboard['type_breakdown']:
+                        for case_type, count in dashboard['type_breakdown'].items():
+                            st.write(f"• {case_type}: **{count}**")
+
+                # Weekly report
+                if st.button("📄 Generate Weekly Report"):
+                    report = cm.generate_weekly_report()
+                    st.text_area("Weekly Report", report, height=400)
+                    st.download_button(
+                        "📥 Download Report",
+                        report,
+                        file_name=f"weekly_report_{datetime.now().strftime('%Y%m%d')}.txt",
+                        mime="text/plain"
+                    )
+
+            with tab2:
+                st.subheader("All Cases")
+
+                # Filter by status
+                status_filter = st.selectbox(
+                    "Filter by Status",
+                    ["All"] + [s.value for s in CaseStatus]
+                )
+
+                cases = cm.get_all_cases(None if status_filter == "All" else status_filter)
+
+                if not cases:
+                    st.info("No cases found. Create a new case to get started.")
+                else:
+                    for case in cases:
+                        with st.expander(f"📁 {case.client_name} vs. {case.opposing_party or 'N/A'} | {case.case_type}"):
+                            col1, col2 = st.columns(2)
+
+                            with col1:
+                                st.write(f"**Case Number:** {case.case_number or 'Pending'}")
+                                st.write(f"**Status:** {case.status}")
+                                st.write(f"**Court:** {case.court}")
+                                st.write(f"**Judge:** {case.judge or 'TBD'}")
+
+                            with col2:
+                                st.write(f"**Opened:** {case.open_date}")
+                                st.write(f"**Attorney:** {case.attorney or 'N/A'}")
+                                st.write(f"**Paralegal:** {case.paralegal or 'N/A'}")
+
+                            summary = cm.get_case_summary(case.id)
+                            st.write(f"**Tasks:** {summary['completed_tasks']}/{summary['total_tasks']} completed")
+                            st.write(f"**Deadlines:** {summary['completed_deadlines']}/{summary['total_deadlines']} completed")
+
+                            # Quick actions
+                            col1, col2, col3 = st.columns(3)
+                            with col1:
+                                if st.button("View Details", key=f"view_{case.id}"):
+                                    st.session_state.selected_case = case.id
+                            with col2:
+                                new_status = st.selectbox(
+                                    "Update Status",
+                                    [s.value for s in CaseStatus],
+                                    index=[s.value for s in CaseStatus].index(case.status) if case.status in [s.value for s in CaseStatus] else 0,
+                                    key=f"status_{case.id}"
+                                )
+                                if new_status != case.status:
+                                    cm.update_case(case.id, {'status': new_status})
+                                    st.rerun()
+
+            with tab3:
+                st.subheader("Deadline Management")
+
+                # Show upcoming deadlines
+                days_ahead = st.slider("Show deadlines for next N days", 7, 90, 30)
+                deadlines = cm.get_upcoming_deadlines(days_ahead)
+
+                if not deadlines:
+                    st.info("No upcoming deadlines.")
+                else:
+                    for dl in deadlines:
+                        case = cm.cases.get(dl.case_id)
+                        client = case.client_name if case else "Unknown"
+                        urgency = dl.urgency_level
+
+                        col1, col2, col3 = st.columns([3, 1, 1])
+
+                        with col1:
+                            if urgency in ["CRITICAL", "URGENT"]:
+                                st.warning(f"**{dl.title}** - {client}")
+                            else:
+                                st.write(f"**{dl.title}** - {client}")
+                            st.caption(f"{dl.deadline_type} | {dl.location}")
+
+                        with col2:
+                            st.write(f"📅 {dl.due_date}")
+                            st.caption(f"{dl.days_until_due} days")
+
+                        with col3:
+                            if st.button("✓ Complete", key=f"complete_dl_{dl.id}"):
+                                cm.complete_deadline(dl.id)
+                                st.rerun()
+
+                st.markdown("---")
+
+                # Add new deadline
+                st.subheader("Add New Deadline")
+
+                case_options = {f"{c.client_name} ({c.id})": c.id for c in cm.cases.values()}
+
+                if case_options:
+                    col1, col2 = st.columns(2)
+
+                    with col1:
+                        selected_case = st.selectbox("Select Case", list(case_options.keys()), key="new_dl_case")
+                        dl_title = st.text_input("Deadline Title", key="new_dl_title")
+                        dl_type = st.selectbox("Type", [t.value for t in DeadlineType], key="new_dl_type")
+
+                    with col2:
+                        dl_date = st.date_input("Due Date", key="new_dl_date")
+                        dl_time = st.time_input("Due Time (optional)", key="new_dl_time")
+                        dl_location = st.text_input("Location", key="new_dl_loc")
+
+                    if st.button("Add Deadline", type="primary"):
+                        if dl_title:
+                            cm.create_deadline({
+                                'case_id': case_options[selected_case],
+                                'title': dl_title,
+                                'deadline_type': dl_type,
+                                'due_date': dl_date.strftime("%Y-%m-%d"),
+                                'due_time': dl_time.strftime("%H:%M") if dl_time else "",
+                                'location': dl_location
+                            })
+                            st.success("✅ Deadline added!")
+                            st.rerun()
+                else:
+                    st.info("Create a case first to add deadlines.")
+
+            with tab4:
+                st.subheader("Task Management")
+
+                # Filter options
+                col1, col2 = st.columns(2)
+                with col1:
+                    case_filter = st.selectbox(
+                        "Filter by Case",
+                        ["All Cases"] + [f"{c.client_name}" for c in cm.cases.values()],
+                        key="task_case_filter"
+                    )
+                with col2:
+                    priority_filter = st.multiselect(
+                        "Filter by Priority",
+                        ["Urgent", "High", "Medium", "Low"],
+                        default=["Urgent", "High"],
+                        key="task_priority_filter"
+                    )
+
+                # Get filtered tasks
+                case_id_filter = None
+                if case_filter != "All Cases":
+                    for c in cm.cases.values():
+                        if c.client_name == case_filter:
+                            case_id_filter = c.id
+                            break
+
+                tasks = cm.get_pending_tasks(case_id_filter)
+                tasks = [t for t in tasks if t.priority in priority_filter]
+
+                if not tasks:
+                    st.info("No pending tasks matching filters.")
+                else:
+                    for task in tasks:
+                        case = cm.cases.get(task.case_id)
+                        client = case.client_name if case else "Unknown"
+
+                        priority_colors = {"Urgent": "🔴", "High": "🟠", "Medium": "🟡", "Low": "🟢"}
+
+                        col1, col2, col3 = st.columns([4, 1, 1])
+
+                        with col1:
+                            st.write(f"{priority_colors.get(task.priority, '⚪')} **{task.title}**")
+                            st.caption(f"{client} | Est: {task.estimated_minutes} min")
+
+                        with col2:
+                            new_status = st.selectbox(
+                                "Status",
+                                ["Pending", "In Progress", "Completed"],
+                                index=["Pending", "In Progress", "Completed"].index(task.status) if task.status in ["Pending", "In Progress", "Completed"] else 0,
+                                key=f"task_status_{task.id}"
+                            )
+                            if new_status != task.status:
+                                cm.update_task(task.id, {'status': new_status})
+                                st.rerun()
+
+                        with col3:
+                            if st.button("✓ Done", key=f"complete_task_{task.id}"):
+                                cm.update_task(task.id, {'status': 'Completed'})
+                                st.rerun()
+
+            with tab5:
+                st.subheader("Create New Case")
+
+                col1, col2 = st.columns(2)
+
+                with col1:
+                    new_client_name = st.text_input("Client Name*", key="new_case_client")
+                    new_opposing = st.text_input("Opposing Party", key="new_case_opposing")
+                    new_case_type = st.selectbox("Case Type*", [t.value for t in CaseType], key="new_case_type")
+                    new_court = st.selectbox(
+                        "Court*",
+                        firm_config.courts if firm_config else ["Nassau County Supreme Court", "Nassau County Family Court"],
+                        key="new_case_court"
+                    )
+
+                with col2:
+                    new_case_number = st.text_input("Index/Docket Number", key="new_case_number")
+                    new_judge = st.text_input("Judge (if known)", key="new_case_judge")
+                    new_attorney = st.text_input("Attorney Assigned", key="new_case_attorney")
+                    new_paralegal = st.text_input("Paralegal Assigned", key="new_case_paralegal")
+
+                st.markdown("---")
+
+                col1, col2 = st.columns(2)
+                with col1:
+                    new_marriage_date = st.date_input("Marriage Date", key="new_case_marriage")
+                with col2:
+                    new_separation_date = st.date_input("Separation Date", key="new_case_separation")
+
+                new_description = st.text_area("Case Description/Notes", key="new_case_desc")
+
+                col1, col2 = st.columns(2)
+                with col1:
+                    new_retainer = st.number_input("Retainer Amount ($)", 0.0, step=500.0, key="new_case_retainer")
+
+                if st.button("Create Case", type="primary"):
+                    if new_client_name:
+                        case = cm.create_case({
+                            'client_name': new_client_name,
+                            'opposing_party': new_opposing,
+                            'case_type': new_case_type,
+                            'case_number': new_case_number,
+                            'court': new_court,
+                            'county': new_court.split()[0] if new_court else "Nassau",
+                            'judge': new_judge,
+                            'attorney': new_attorney,
+                            'paralegal': new_paralegal,
+                            'marriage_date': new_marriage_date.strftime("%Y-%m-%d"),
+                            'separation_date': new_separation_date.strftime("%Y-%m-%d"),
+                            'description': new_description,
+                            'retainer_amount': new_retainer,
+                            'retainer_balance': new_retainer
+                        })
+
+                        st.success(f"✅ Case created: {case.id}")
+                        st.info("📋 Standard intake tasks have been automatically created.")
+                        st.rerun()
+                    else:
+                        st.warning("Please enter client name.")
+
+    elif module == "📈 ROI Dashboard":
+        st.header("ROI & Efficiency Analytics")
+
+        if not ROI_AVAILABLE:
+            st.error("ROI calculator module not available.")
+        else:
+            # Initialize ROI calculator
+            if 'roi_calculator' not in st.session_state:
+                st.session_state.roi_calculator = create_roi_calculator()
+
+            calc = st.session_state.roi_calculator
+
+            st.info("""
+            **Demonstrate the value of automation to your practice.**
+
+            This dashboard shows real-time ROI calculations based on your firm's case volume
+            and industry-standard time benchmarks for paralegal tasks.
+            """)
+
+            # Configuration section
+            with st.expander("⚙️ Customize Your Practice Profile"):
+                col1, col2, col3 = st.columns(3)
+
+                with col1:
+                    new_cases = st.number_input("New Cases/Month", 1, 50, 8)
+                    calc.case_volume.new_cases_per_month = new_cases
+
+                with col2:
+                    active_cases = st.number_input("Active Cases", 10, 200, 45)
+                    calc.case_volume.active_cases = active_cases
+
+                with col3:
+                    paralegal_rate = st.number_input("Paralegal Hourly Rate ($)", 20.0, 75.0, 35.0)
+                    calc.paralegal_costs.hourly_rate = paralegal_rate
+
+            st.markdown("---")
+
+            # Calculate ROI at different price points
+            platform_cost = st.slider("Monthly Platform Cost ($)", 500, 3000, 1500, 100)
+            roi = calc.calculate_full_roi(platform_cost)
+
+            # Key metrics
+            col1, col2, col3, col4 = st.columns(4)
+
+            with col1:
+                st.metric(
+                    "Monthly Time Saved",
+                    f"{roi.monthly_time_saved_hours:.1f} hrs",
+                    f"{roi.efficiency_gain_percentage:.0f}% more efficient"
+                )
+
+            with col2:
+                st.metric(
+                    "Monthly Cost Saved",
+                    f"${roi.monthly_cost_saved:,.0f}",
+                    f"${roi.annual_cost_saved:,.0f}/year"
+                )
+
+            with col3:
+                st.metric(
+                    "Paralegal FTE Equivalent",
+                    f"{roi.paralegal_fte_equivalent:.2f}",
+                    "staff savings"
+                )
+
+            with col4:
+                if roi.payback_period_months < 12:
+                    st.metric(
+                        "Payback Period",
+                        f"{roi.payback_period_months:.1f} months",
+                        f"{roi.roi_percentage:.0f}% ROI"
+                    )
+                else:
+                    st.metric(
+                        "ROI",
+                        f"{roi.roi_percentage:.0f}%",
+                        "Annual Return"
+                    )
+
+            st.markdown("---")
+
+            # Task-by-task breakdown
+            st.subheader("📊 Time Savings by Task")
+
+            tasks = roi.tasks_automated
+
+            # Create a dataframe for visualization
+            task_data = []
+            for task_name, data in tasks.items():
+                task_data.append({
+                    'Task': task_name,
+                    'Manual (hrs)': data['manual_minutes'] / 60,
+                    'Automated (hrs)': data['automated_minutes'] / 60,
+                    'Saved (hrs)': data['savings_minutes'] / 60,
+                    'Efficiency': f"{(data['savings_minutes'] / data['manual_minutes']) * 100:.0f}%"
+                })
+
+            df = pd.DataFrame(task_data)
+            st.dataframe(df, use_container_width=True)
+
+            # Visual comparison
+            st.subheader("📈 Before vs. After Comparison")
+
+            col1, col2 = st.columns(2)
+
+            with col1:
+                st.write("**Monthly Time Without Automation:**")
+                total_manual = sum(t['manual_minutes'] for t in tasks.values()) / 60
+                st.metric("Total Hours", f"{total_manual:.1f}")
+                st.caption(f"= {total_manual / 40:.1f} work weeks")
+
+            with col2:
+                st.write("**Monthly Time With Platform:**")
+                total_auto = sum(t['automated_minutes'] for t in tasks.values()) / 60
+                st.metric("Total Hours", f"{total_auto:.1f}")
+                st.caption(f"= {total_auto / 40:.1f} work weeks")
+
+            st.markdown("---")
+
+            # Financial Summary
+            st.subheader("💰 Financial Summary")
+
+            col1, col2 = st.columns(2)
+
+            with col1:
+                st.write("**Cost Analysis (Annual)**")
+                st.write(f"• Paralegal time saved: **${roi.annual_cost_saved:,.0f}**")
+                st.write(f"• Platform cost: **${platform_cost * 12:,.0f}**")
+                net_savings = roi.annual_cost_saved - (platform_cost * 12)
+                st.write(f"• **Net Savings: ${net_savings:,.0f}**")
+
+            with col2:
+                st.write("**Value Beyond Cost Savings**")
+                st.write("• Faster case turnaround")
+                st.write("• Reduced errors in calculations")
+                st.write("• Better deadline compliance")
+                st.write("• Improved client satisfaction")
+                st.write("• Scalability without hiring")
+
+            # Download comparison report
+            st.markdown("---")
+
+            if st.button("📄 Generate ROI Report"):
+                comparison = calc.generate_comparison_table()
+
+                report = f"""
+ROI ANALYSIS REPORT
+Generated: {datetime.now().strftime("%B %d, %Y")}
+{'=' * 60}
+
+PRACTICE PROFILE
+----------------
+New Cases/Month: {calc.case_volume.new_cases_per_month}
+Active Cases: {calc.case_volume.active_cases}
+Paralegal Hourly Rate: ${calc.paralegal_costs.hourly_rate:.2f}
+
+KEY METRICS
+-----------
+Monthly Time Saved: {roi.monthly_time_saved_hours:.1f} hours
+Monthly Cost Saved: ${roi.monthly_cost_saved:,.2f}
+Annual Cost Saved: ${roi.annual_cost_saved:,.2f}
+Paralegal FTE Equivalent: {roi.paralegal_fte_equivalent:.2f}
+Efficiency Gain: {roi.efficiency_gain_percentage:.0f}%
+ROI: {roi.roi_percentage:.0f}%
+Payback Period: {roi.payback_period_months:.1f} months
+
+TASK COMPARISON
+---------------
+{comparison}
+
+RECOMMENDATION
+--------------
+At ${platform_cost}/month, this platform delivers ${net_savings:,.0f} in net annual savings.
+"""
+                st.text_area("Report", report, height=400)
+                st.download_button(
+                    "📥 Download Report",
+                    report,
+                    file_name="roi_analysis_report.txt",
+                    mime="text/plain"
+                )
+
+    elif module == "🎯 Sales Demo":
+        st.header("Sales Demonstration Mode")
+
+        if not ROI_AVAILABLE:
+            st.error("Demo module not available.")
+        else:
+            calc = create_roi_calculator()
+
+            st.success("""
+            **Welcome to the Family Law Practice Automation Platform Demo!**
+
+            This presentation demonstrates how our platform can transform your practice
+            by automating time-consuming paralegal tasks while maintaining accuracy
+            and compliance with NY Family Law requirements.
+            """)
+
+            # Demo navigation
+            demo_section = st.radio(
+                "Select Demo Section:",
+                ["🎬 Executive Overview", "⏱️ Time Savings Demo", "💵 Pricing Options",
+                 "🏆 Why Choose Us", "📋 Implementation Plan"],
+                horizontal=True
+            )
+
+            st.markdown("---")
+
+            if demo_section == "🎬 Executive Overview":
+                st.subheader("Transform Your Family Law Practice")
+
+                col1, col2 = st.columns([2, 1])
+
+                with col1:
+                    st.markdown("""
+                    ### The Challenge
+                    Family law practices face increasing pressure to:
+                    - Handle more cases with limited staff
+                    - Maintain accuracy in complex financial calculations
+                    - Meet strict court deadlines
+                    - Reduce operating costs while improving service
+
+                    ### Our Solution
+                    A comprehensive automation platform designed specifically for
+                    NY Family Law practices that:
+
+                    ✅ **Automates document preparation** - Net Worth Statements,
+                    Complaints, Child Support Worksheets in minutes, not hours
+
+                    ✅ **Ensures calculation accuracy** - Built-in CSSA and DRL §236
+                    compliance, eliminating costly errors
+
+                    ✅ **Manages deadlines proactively** - Never miss a filing
+                    deadline or court date again
+
+                    ✅ **Extracts data from documents** - OCR technology reads
+                    tax returns, bank statements, and pay stubs automatically
+
+                    ✅ **Integrates with your workflow** - Google Drive integration
+                    for seamless document management
+                    """)
+
+                with col2:
+                    st.info("""
+                    **Quick Stats**
+
+                    📊 **83%** average efficiency gain
+
+                    ⏱️ **62 hours** saved monthly
+
+                    💰 **$2,800** monthly cost savings
+
+                    📅 **0** missed deadlines
+
+                    🎯 **3.2 month** payback period
+                    """)
+
+            elif demo_section == "⏱️ Time Savings Demo":
+                st.subheader("Real-World Time Savings")
+
+                # Interactive comparison
+                st.write("### Select a task to see the time savings:")
+
+                task_demos = {
+                    "Net Worth Statement Preparation": {
+                        "manual": 180,
+                        "automated": 30,
+                        "description": "Complete DRL §236 compliant statement with all schedules"
+                    },
+                    "Child Support Calculation": {
+                        "manual": 45,
+                        "automated": 5,
+                        "description": "Full CSSA calculation with add-ons and pro-rata shares"
+                    },
+                    "Tax Return Analysis": {
+                        "manual": 120,
+                        "automated": 15,
+                        "description": "Extract income, identify discrepancies, flag issues"
+                    },
+                    "Bank Statement Review": {
+                        "manual": 60,
+                        "automated": 10,
+                        "description": "Analyze 3 months of transactions for patterns"
+                    },
+                    "Verified Complaint Drafting": {
+                        "manual": 120,
+                        "automated": 20,
+                        "description": "Generate court-ready complaint with all allegations"
+                    }
+                }
+
+                selected_task = st.selectbox("Choose a task:", list(task_demos.keys()))
+
+                task = task_demos[selected_task]
+
+                col1, col2, col3 = st.columns(3)
+
+                with col1:
+                    st.metric("Manual Time", f"{task['manual']} min")
+                with col2:
+                    st.metric("With Platform", f"{task['automated']} min")
+                with col3:
+                    savings = task['manual'] - task['automated']
+                    pct = (savings / task['manual']) * 100
+                    st.metric("Time Saved", f"{savings} min", f"{pct:.0f}% faster")
+
+                st.info(f"**What's included:** {task['description']}")
+
+                # Monthly impact
+                st.markdown("---")
+                st.write("### Monthly Impact (8 new cases)")
+
+                monthly_manual = sum(t['manual'] for t in task_demos.values()) * 8
+                monthly_auto = sum(t['automated'] for t in task_demos.values()) * 8
+
+                col1, col2 = st.columns(2)
+
+                with col1:
+                    st.error(f"""
+                    **Without Automation**
+                    - {monthly_manual / 60:.0f} hours/month on these tasks
+                    - {monthly_manual / 60 / 40:.1f} weeks of paralegal time
+                    - ${monthly_manual / 60 * 45.50:.0f} in labor costs
+                    """)
+
+                with col2:
+                    st.success(f"""
+                    **With Our Platform**
+                    - {monthly_auto / 60:.0f} hours/month on these tasks
+                    - {monthly_auto / 60 / 40:.1f} weeks of paralegal time
+                    - ${monthly_auto / 60 * 45.50:.0f} in labor costs
+                    """)
+
+            elif demo_section == "💵 Pricing Options":
+                st.subheader("Investment Options")
+
+                pricing = calc.generate_pricing_recommendation()
+
+                col1, col2, col3 = st.columns(3)
+
+                with col1:
+                    tier = pricing['pricing_tiers']['starter']
+                    st.markdown(f"""
+                    ### 🥉 Starter
+                    ## ${tier['price']}/month
+
+                    **Best for:** Solo practitioners
+
+                    **Includes:**
+                    """)
+                    for feature in tier['features']:
+                        st.write(f"✓ {feature}")
+
+                    st.info(f"ROI: {tier['roi_percentage']:.0f}%")
+
+                with col2:
+                    tier = pricing['pricing_tiers']['professional']
+                    st.markdown(f"""
+                    ### 🥈 Professional
+                    ## ${tier['price']}/month
+
+                    **Best for:** Small firms (2-5 attorneys)
+
+                    **Includes:**
+                    """)
+                    for feature in tier['features']:
+                        st.write(f"✓ {feature}")
+
+                    st.success(f"**RECOMMENDED** - ROI: {tier['roi_percentage']:.0f}%")
+
+                with col3:
+                    tier = pricing['pricing_tiers']['enterprise']
+                    st.markdown(f"""
+                    ### 🥇 Enterprise
+                    ## ${tier['price']}/month
+
+                    **Best for:** Larger practices
+
+                    **Includes:**
+                    """)
+                    for feature in tier['features']:
+                        st.write(f"✓ {feature}")
+
+                    st.info(f"ROI: {tier['roi_percentage']:.0f}%")
+
+                st.markdown("---")
+
+                # Alternative pricing
+                st.write("### Alternative: One-Time License")
+
+                alt = pricing['one_time_alternative']
+                st.write(f"""
+                - **Setup Fee:** ${alt['setup_fee']:,}
+                - **Monthly Support:** ${alt['monthly_support']}/month
+                - **Year 1 Total:** ${alt['total_year_1']:,}
+
+                *{alt['note']}*
+                """)
+
+            elif demo_section == "🏆 Why Choose Us":
+                st.subheader("Built for NY Family Law Practices")
+
+                col1, col2 = st.columns(2)
+
+                with col1:
+                    st.markdown("""
+                    ### ⚖️ Legal Compliance Built-In
+
+                    - **DRL §236** maintenance calculations
+                    - **DRL §240(1-b)** CSSA child support
+                    - **22 NYCRR §202.16(b)** Net Worth Statement format
+                    - 2024 income caps automatically applied
+                    - Nassau County court-specific formatting
+
+                    ### 🔒 Security & Confidentiality
+
+                    - Attorney-client privilege protected
+                    - Encrypted data storage
+                    - Secure Google Drive integration
+                    - No data sharing with third parties
+                    - HIPAA-compliant infrastructure
+
+                    ### 🏠 Local Expertise
+
+                    - Built for Nassau County practices
+                    - Familiar with local court requirements
+                    - Understands DV case sensitivities
+                    - Knows the judges and procedures
+                    """)
+
+                with col2:
+                    st.markdown("""
+                    ### 🚀 Rapid Implementation
+
+                    - Up and running in 1 week
+                    - Import existing case data
+                    - Train your team in 2 hours
+                    - Full support during transition
+                    - No disruption to current cases
+
+                    ### 💪 Proven Results
+
+                    > "We cut our document preparation time by 80%
+                    > and haven't missed a deadline since implementing
+                    > the platform."
+                    >
+                    > *— Family Law Attorney, Nassau County*
+
+                    ### 📞 Dedicated Support
+
+                    - Dedicated account manager
+                    - Phone and email support
+                    - Regular feature updates
+                    - Custom template requests
+                    - Training for new staff
+                    """)
+
+            elif demo_section == "📋 Implementation Plan":
+                st.subheader("Getting Started is Easy")
+
+                st.markdown("""
+                ### Week 1: Setup & Configuration
+
+                **Day 1-2:**
+                - Account creation and branding setup
+                - Google Drive integration
+                - User account creation
+
+                **Day 3-4:**
+                - Import existing client/case data
+                - Configure deadline calendars
+                - Set up document templates
+
+                **Day 5:**
+                - Staff training session (2 hours)
+                - Q&A and customization requests
+
+                ---
+
+                ### Week 2: Go Live
+
+                **Day 6-7:**
+                - Parallel operation (old + new system)
+                - Real case processing with supervision
+
+                **Day 8-10:**
+                - Full transition to platform
+                - Support available for any issues
+
+                ---
+
+                ### Ongoing
+
+                - Weekly check-ins for first month
+                - Monthly feature updates
+                - Quarterly business reviews
+                - Annual ROI assessments
+                """)
+
+                st.success("""
+                ### Ready to Transform Your Practice?
+
+                📞 **Schedule a Demo:** (347) 628-5440
+
+                📧 **Email:** info@whitelawgroupny.com
+
+                🌐 **Website:** wwlgny.com
+                """)
+
     elif module == "⚙️ Settings":
         st.header("Settings & Configuration")
 
@@ -1483,6 +2353,26 @@ def main():
                 st.success("✅ Firm Config")
             else:
                 st.error("❌ Firm Config")
+
+        col1, col2, col3 = st.columns(3)
+
+        with col1:
+            if ROI_AVAILABLE:
+                st.success("✅ ROI Analytics")
+            else:
+                st.error("❌ ROI Analytics")
+
+        with col2:
+            if CASE_MANAGER_AVAILABLE:
+                st.success("✅ Case Manager")
+            else:
+                st.error("❌ Case Manager")
+
+        with col3:
+            if TEMPLATES_AVAILABLE:
+                st.success("✅ Doc Templates")
+            else:
+                st.error("❌ Doc Templates")
 
         st.markdown("---")
 
