@@ -3,12 +3,21 @@ import streamlit as st
 import pandas as pd
 import numpy as np
 import json
+import os
 from datetime import datetime
 from financial_analyzer import (
     SupportCalculatorNY,
     FinancialConsistencyAnalyzer,
     NetWorthStatement
 )
+
+# Optional Google Drive integration
+try:
+    from drive_manager import FamilyLawDriveManager, CaseMetadata, DocumentMetadata
+    DRIVE_AVAILABLE = True
+except ImportError:
+    DRIVE_AVAILABLE = False
+
 
 def main():
     st.set_page_config(
@@ -30,17 +39,25 @@ def main():
     # Sidebar for navigation
     with st.sidebar:
         st.header("Analysis Modules")
-        module = st.radio(
-            "Select Analysis:",
-            ["Support Calculator", "Document Consistency",
-             "Hidden Income Detection", "Full Analysis Report"]
-        )
+        
+        # Build module list
+        modules = ["Support Calculator", "Document Consistency",
+                  "Hidden Income Detection", "Full Analysis Report"]
+        
+        if DRIVE_AVAILABLE:
+            modules.append("📁 Google Drive Manager")
+        
+        module = st.radio("Select Analysis:", modules)
 
         st.markdown("---")
         st.info("**NY Law References:**\n"
                 "- DRL §240(1-b): Child Support\n"
                 "- DRL §236: Maintenance\n"
                 "- Uniform Rule 202.16(b): Net Worth Statements")
+        
+        if DRIVE_AVAILABLE:
+            st.markdown("---")
+            st.success("✅ Google Drive Integration Available")
 
     if module == "Support Calculator":
         st.header("NY Support Calculations")
@@ -370,5 +387,209 @@ def main():
                     mime="text/plain"
                 )
 
+    elif module == "📁 Google Drive Manager":
+        st.header("Google Drive Document Manager")
+        
+        if not DRIVE_AVAILABLE:
+            st.error("Google Drive integration not available. Please install required packages.")
+            return
+        
+        # Initialize Drive Manager in session state
+        if 'drive_manager' not in st.session_state:
+            st.session_state.drive_manager = None
+        
+        # Check for credentials
+        has_credentials = os.path.exists('credentials.json') or 'google' in st.secrets
+        
+        if not has_credentials:
+            st.warning("⚠️ Google Drive credentials not configured")
+            
+            with st.expander("📖 Setup Instructions"):
+                st.markdown("""
+                ### Google Drive API Setup
+                
+                1. **Create Google Cloud Project:**
+                   - Go to [Google Cloud Console](https://console.cloud.google.com/)
+                   - Create a new project
+                
+                2. **Enable Google Drive API:**
+                   - Navigate to APIs & Services > Library
+                   - Search for "Google Drive API"
+                   - Click "Enable"
+                
+                3. **Create OAuth Credentials:**
+                   - Go to APIs & Services > Credentials
+                   - Create OAuth 2.0 Client ID
+                   - Application type: Web application
+                   - Download credentials as JSON
+                
+                4. **Configure Credentials:**
+                   - For local: Save as `credentials.json` in project directory
+                   - For cloud: Add to Streamlit secrets
+                
+                For detailed instructions, see `DEPLOYMENT.md`
+                """)
+        else:
+            # Authentication section
+            col1, col2 = st.columns([3, 1])
+            
+            with col1:
+                st.subheader("Drive Connection")
+            
+            with col2:
+                if st.button("🔌 Connect"):
+                    with st.spinner("Authenticating..."):
+                        try:
+                            drive_manager = FamilyLawDriveManager()
+                            if drive_manager.authenticate():
+                                drive_manager.initialize_drive_structure()
+                                drive_manager._load_document_index()
+                                st.session_state.drive_manager = drive_manager
+                                st.success("✅ Connected to Google Drive!")
+                            else:
+                                st.error("Authentication failed")
+                        except Exception as e:
+                            st.error(f"Error: {str(e)}")
+            
+            if st.session_state.drive_manager:
+                st.success("✅ Google Drive Connected")
+                
+                # Tabs for different operations
+                tab1, tab2, tab3 = st.tabs(["Create Case", "Upload Documents", "Search Documents"])
+                
+                with tab1:
+                    st.subheader("Create New Case")
+                    
+                    col1, col2 = st.columns(2)
+                    
+                    with col1:
+                        case_id = st.text_input("Case ID*", placeholder="FL-2024-001")
+                        client_name = st.text_input("Client Name*", placeholder="Jane Doe")
+                        case_type = st.selectbox(
+                            "Case Type*",
+                            ["Divorce", "Divorce with Children", "Child Custody", 
+                             "Child Support", "Maintenance", "Modification"]
+                        )
+                    
+                    with col2:
+                        opposing_party = st.text_input("Opposing Party", placeholder="John Doe")
+                        jurisdiction = st.text_input("Jurisdiction*", placeholder="Kings County")
+                        attorney = st.text_input("Attorney Assigned", placeholder="Robert Johnson, Esq.")
+                    
+                    if st.button("Create Case Folder", type="primary"):
+                        if case_id and client_name and jurisdiction:
+                            with st.spinner("Creating case folder..."):
+                                case_metadata = CaseMetadata(
+                                    case_id=case_id,
+                                    client_name=client_name,
+                                    opposing_party=opposing_party,
+                                    case_type=case_type,
+                                    jurisdiction=jurisdiction,
+                                    filing_date=datetime.now().strftime("%Y-%m-%d"),
+                                    status="Active",
+                                    attorney_assigned=attorney,
+                                    paralegal_assigned="",
+                                    tags=[case_type.lower()]
+                                )
+                                
+                                folder_id = st.session_state.drive_manager.create_case_folder(case_metadata)
+                                
+                                if folder_id:
+                                    st.success(f"✅ Created case folder for {case_id}")
+                                else:
+                                    st.error("Failed to create case folder")
+                        else:
+                            st.warning("Please fill in all required fields (*)")
+                
+                with tab2:
+                    st.subheader("Upload Document")
+                    
+                    # Get list of cases
+                    cases = list(st.session_state.drive_manager.case_index.keys())
+                    
+                    if not cases:
+                        st.info("No cases found. Create a case first.")
+                    else:
+                        selected_case = st.selectbox("Select Case", cases)
+                        
+                        uploaded_file = st.file_uploader(
+                            "Choose file",
+                            type=['pdf', 'docx', 'doc', 'txt', 'xlsx', 'jpg', 'png']
+                        )
+                        
+                        doc_type = st.selectbox(
+                            "Document Type",
+                            ["net_worth", "tax_return", "bank_statement", "pay_stub",
+                             "complaint", "answer", "motion", "letter", "email", "other"]
+                        )
+                        
+                        description = st.text_area("Description (optional)")
+                        confidential = st.checkbox("Mark as Confidential")
+                        
+                        if uploaded_file and st.button("Upload to Drive", type="primary"):
+                            with st.spinner("Uploading..."):
+                                # Save temp file
+                                temp_path = f"/tmp/{uploaded_file.name}"
+                                with open(temp_path, "wb") as f:
+                                    f.write(uploaded_file.getbuffer())
+                                
+                                # Upload to Drive
+                                metadata = st.session_state.drive_manager.upload_document(
+                                    file_path=temp_path,
+                                    case_id=selected_case,
+                                    document_type=doc_type,
+                                    description=description,
+                                    confidential=confidential
+                                )
+                                
+                                # Clean up
+                                os.remove(temp_path)
+                                
+                                if metadata:
+                                    st.success(f"✅ Uploaded: {metadata.document_name}")
+                                else:
+                                    st.error("Upload failed")
+                
+                with tab3:
+                    st.subheader("Search Documents")
+                    
+                    search_query = st.text_input("Search", placeholder="Enter keywords...")
+                    
+                    col1, col2 = st.columns(2)
+                    with col1:
+                        filter_case = st.selectbox(
+                            "Filter by Case",
+                            ["All Cases"] + list(st.session_state.drive_manager.case_index.keys())
+                        )
+                    
+                    with col2:
+                        filter_type = st.selectbox(
+                            "Filter by Type",
+                            ["All Types", "net_worth", "tax_return", "bank_statement", 
+                             "pay_stub", "complaint", "motion", "letter"]
+                        )
+                    
+                    if st.button("Search"):
+                        case_filter = None if filter_case == "All Cases" else filter_case
+                        type_filter = None if filter_type == "All Types" else filter_type
+                        
+                        results = st.session_state.drive_manager.search_documents(
+                            query=search_query or "",
+                            case_id=case_filter,
+                            document_type=type_filter
+                        )
+                        
+                        st.write(f"Found {len(results)} documents")
+                        
+                        for doc in results:
+                            with st.expander(f"📄 {doc.document_name}"):
+                                st.write(f"**Case:** {doc.case_id}")
+                                st.write(f"**Type:** {doc.document_type}")
+                                st.write(f"**Uploaded:** {doc.created_date}")
+                                st.write(f"**Description:** {doc.description}")
+                                if doc.confidential:
+                                    st.warning("🔒 Confidential")
+
 if __name__ == "__main__":
     main()
+

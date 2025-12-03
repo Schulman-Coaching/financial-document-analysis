@@ -137,7 +137,7 @@ class TaxReturnAnalyzer:
             return float(value)
         if isinstance(value, str):
             # Remove $, commas, parentheses for negatives
-            value = value.replace(', '').replace(',', '').replace('(', '-').replace(')', '')
+            value = value.replace('$', '').replace(',', '').replace('(', '-').replace(')', '')
             try:
                 return float(value)
             except:
