@@ -25,16 +25,43 @@ try:
 except ImportError:
     OCR_AVAILABLE = False
 
+# Firm configuration and report generation
+try:
+    from firm_config import FirmConfig, get_default_config, NASSAU_COUNTY_CONFIG, CASE_TYPES
+    from report_generator import ReportGenerator, create_report_generator
+    FIRM_CONFIG_AVAILABLE = True
+except ImportError:
+    FIRM_CONFIG_AVAILABLE = False
+
 
 def main():
+    # Load firm configuration
+    if FIRM_CONFIG_AVAILABLE:
+        firm_config = get_default_config()
+        report_gen = create_report_generator(firm_config)
+    else:
+        firm_config = None
+        report_gen = None
+
     st.set_page_config(
-        page_title="Financial Document Analysis",
-        page_icon="💰",
+        page_title=f"Financial Analysis | {firm_config.firm_name if firm_config else 'Family Law'}",
+        page_icon="⚖️",
         layout="wide"
     )
 
-    st.title("💰 NY Family Law Financial Document Analysis")
-    st.markdown("Analyze Net Worth Statements, Tax Returns, and Calculate Support")
+    # Header with firm branding
+    if firm_config:
+        col1, col2 = st.columns([3, 1])
+        with col1:
+            st.title(f"⚖️ {firm_config.firm_name}")
+            st.markdown(f"*{firm_config.firm_tagline}*")
+        with col2:
+            st.markdown(f"**📞 {firm_config.phone}**")
+            st.markdown(f"📍 {firm_config.primary_jurisdiction}")
+    else:
+        st.title("💰 NY Family Law Financial Document Analysis")
+        st.markdown("Analyze Net Worth Statements, Tax Returns, and Calculate Support")
+
     st.markdown("---")
 
     # Initialize session state
@@ -48,16 +75,19 @@ def main():
         st.header("Analysis Modules")
         
         # Build module list
-        modules = ["Support Calculator", "Document Consistency",
-                  "Hidden Income Detection", "Full Analysis Report"]
+        modules = ["📊 Support Calculator", "📋 Case Intake",
+                  "🔎 Document Consistency", "🕵️ Hidden Income Detection",
+                  "📄 Full Analysis Report"]
 
         if OCR_AVAILABLE:
             modules.append("🔍 OCR Document Scanner")
 
         if DRIVE_AVAILABLE:
             modules.append("📁 Google Drive Manager")
-        
-        module = st.radio("Select Analysis:", modules)
+
+        modules.append("⚙️ Settings")
+
+        module = st.radio("Select Module:", modules)
 
         st.markdown("---")
         st.info("**NY Law References:**\n"
@@ -73,7 +103,7 @@ def main():
             st.markdown("---")
             st.success("✅ Google Drive Integration Available")
 
-    if module == "Support Calculator":
+    if module == "📊 Support Calculator":
         st.header("NY Support Calculations")
 
         col1, col2 = st.columns(2)
@@ -229,7 +259,240 @@ def main():
                             maintenance['formula_used']
                         )
 
-    elif module == "Document Consistency":
+    elif module == "📋 Case Intake":
+        st.header("New Case Intake")
+
+        if not FIRM_CONFIG_AVAILABLE:
+            st.warning("Firm configuration not available.")
+
+        # Case Type Selection
+        st.subheader("Case Information")
+
+        col1, col2 = st.columns(2)
+
+        with col1:
+            case_type = st.selectbox(
+                "Case Type",
+                list(CASE_TYPES.keys()) if FIRM_CONFIG_AVAILABLE else [
+                    "contested_divorce", "uncontested_divorce", "custody_modification",
+                    "child_support", "domestic_violence"
+                ],
+                format_func=lambda x: CASE_TYPES.get(x, {}).get('name', x.replace('_', ' ').title()) if FIRM_CONFIG_AVAILABLE else x.replace('_', ' ').title()
+            )
+
+            case_id = st.text_input("Case/Matter ID", placeholder="2024-FL-001")
+
+        with col2:
+            court = st.selectbox(
+                "Court",
+                firm_config.courts if firm_config else [
+                    "Nassau County Supreme Court",
+                    "Nassau County Family Court",
+                    "Queens County Supreme Court"
+                ]
+            )
+            intake_date = st.date_input("Intake Date", datetime.now())
+
+        # Domestic Violence Alert
+        if case_type == "domestic_violence":
+            st.error("""
+            ⚠️ **DOMESTIC VIOLENCE CASE - SAFETY PROTOCOLS**
+
+            - Ensure client safety before proceeding
+            - Verify confidential contact information
+            - Consider Address Confidentiality Program
+            - Check for existing Orders of Protection
+            - Assess immediate safety needs
+            """)
+
+            safety_assessed = st.checkbox("✅ Safety assessment completed")
+            if not safety_assessed:
+                st.warning("Please complete safety assessment before proceeding.")
+
+        st.markdown("---")
+
+        # Client Information
+        st.subheader("Client Information")
+
+        col1, col2 = st.columns(2)
+
+        with col1:
+            client_name = st.text_input("Client Full Name*")
+            client_dob = st.date_input("Date of Birth", min_value=datetime(1940, 1, 1))
+            client_phone = st.text_input("Phone Number*")
+            client_email = st.text_input("Email Address")
+
+        with col2:
+            client_address = st.text_area("Current Address", height=100)
+            client_employer = st.text_input("Employer")
+            client_income = st.number_input("Annual Income ($)", min_value=0.0, step=1000.0)
+
+        st.markdown("---")
+
+        # Opposing Party Information
+        st.subheader("Opposing Party Information")
+
+        col1, col2 = st.columns(2)
+
+        with col1:
+            opposing_name = st.text_input("Opposing Party Name")
+            opposing_dob = st.date_input("Opposing Party DOB", min_value=datetime(1940, 1, 1), key="opp_dob")
+            opposing_phone = st.text_input("Opposing Party Phone (if known)")
+
+        with col2:
+            opposing_address = st.text_area("Opposing Party Address (if known)", height=100)
+            opposing_employer = st.text_input("Opposing Party Employer (if known)")
+            opposing_income = st.number_input("Opposing Party Income (estimated)", min_value=0.0, step=1000.0)
+            opposing_attorney = st.text_input("Opposing Attorney (if known)")
+
+        st.markdown("---")
+
+        # Marriage/Relationship Information
+        st.subheader("Marriage Information")
+
+        col1, col2, col3 = st.columns(3)
+
+        with col1:
+            marriage_date = st.date_input("Date of Marriage", min_value=datetime(1950, 1, 1))
+
+        with col2:
+            separation_date = st.date_input("Date of Separation", min_value=datetime(1950, 1, 1), key="sep_date")
+
+        with col3:
+            marriage_years = (separation_date - marriage_date).days // 365 if separation_date > marriage_date else 0
+            st.metric("Length of Marriage", f"{marriage_years} years")
+
+        grounds = st.selectbox(
+            "Grounds for Divorce",
+            ["Irretrievable Breakdown (No-Fault)", "Cruel and Inhuman Treatment",
+             "Abandonment", "Imprisonment", "Adultery", "Living Apart (Separation Agreement)",
+             "Living Apart (Judgment of Separation)"]
+        )
+
+        st.markdown("---")
+
+        # Children Information
+        st.subheader("Children")
+
+        has_children = st.checkbox("Minor children involved")
+
+        children_data = []
+        if has_children:
+            num_children = st.number_input("Number of Minor Children", min_value=1, max_value=10, value=1)
+
+            for i in range(int(num_children)):
+                with st.expander(f"Child {i + 1}"):
+                    col1, col2 = st.columns(2)
+                    with col1:
+                        child_name = st.text_input(f"Name", key=f"child_name_{i}")
+                        child_dob = st.date_input(f"Date of Birth", key=f"child_dob_{i}")
+                    with col2:
+                        child_residence = st.selectbox(
+                            f"Currently Resides With",
+                            ["Client", "Opposing Party", "Shared/Alternating", "Other"],
+                            key=f"child_res_{i}"
+                        )
+                        child_special = st.checkbox(f"Special Needs", key=f"child_special_{i}")
+
+                    children_data.append({
+                        "name": child_name,
+                        "dob": str(child_dob),
+                        "residence": child_residence,
+                        "special_needs": child_special
+                    })
+
+        st.markdown("---")
+
+        # Financial Overview
+        st.subheader("Financial Overview")
+
+        col1, col2 = st.columns(2)
+
+        with col1:
+            st.write("**Assets**")
+            residence_value = st.number_input("Marital Residence Value ($)", min_value=0.0, step=10000.0)
+            retirement_value = st.number_input("Retirement Accounts ($)", min_value=0.0, step=1000.0)
+            bank_accounts = st.number_input("Bank Accounts ($)", min_value=0.0, step=1000.0)
+            other_assets = st.number_input("Other Assets ($)", min_value=0.0, step=1000.0)
+
+        with col2:
+            st.write("**Liabilities**")
+            mortgage = st.number_input("Mortgage Balance ($)", min_value=0.0, step=1000.0)
+            credit_cards = st.number_input("Credit Card Debt ($)", min_value=0.0, step=100.0)
+            other_debt = st.number_input("Other Debt ($)", min_value=0.0, step=100.0)
+
+        total_assets = residence_value + retirement_value + bank_accounts + other_assets
+        total_liabilities = mortgage + credit_cards + other_debt
+        net_worth = total_assets - total_liabilities
+
+        col1, col2, col3 = st.columns(3)
+        with col1:
+            st.metric("Total Assets", f"${total_assets:,.2f}")
+        with col2:
+            st.metric("Total Liabilities", f"${total_liabilities:,.2f}")
+        with col3:
+            st.metric("Estimated Net Worth", f"${net_worth:,.2f}",
+                     delta=f"${net_worth:,.2f}" if net_worth > 0 else None)
+
+        st.markdown("---")
+
+        # Generate Intake Summary
+        if st.button("📄 Generate Intake Summary", type="primary"):
+            if client_name:
+                client_info = {
+                    "name": client_name,
+                    "dob": str(client_dob),
+                    "phone": client_phone,
+                    "email": client_email,
+                    "address": client_address,
+                    "employer": client_employer,
+                    "opposing_name": opposing_name,
+                    "opposing_dob": str(opposing_dob),
+                    "opposing_address": opposing_address,
+                    "opposing_employer": opposing_employer,
+                    "opposing_attorney": opposing_attorney,
+                    "marriage_date": str(marriage_date),
+                    "separation_date": str(separation_date),
+                    "marriage_years": marriage_years
+                }
+
+                financial_overview = {
+                    "client_income": client_income,
+                    "opposing_income": opposing_income,
+                    "residence_value": residence_value,
+                    "retirement": retirement_value,
+                    "bank_accounts": bank_accounts,
+                    "other_assets": other_assets,
+                    "mortgage": mortgage,
+                    "credit_cards": credit_cards,
+                    "other_debt": other_debt
+                }
+
+                if report_gen:
+                    report = report_gen.generate_case_intake_summary(
+                        client_info=client_info,
+                        case_type=CASE_TYPES.get(case_type, {}).get('name', case_type),
+                        financial_overview=financial_overview,
+                        children_info=children_data if has_children else None,
+                        domestic_violence=(case_type == "domestic_violence")
+                    )
+
+                    st.success("✅ Intake Summary Generated!")
+
+                    st.text_area("Intake Summary", report, height=400)
+
+                    st.download_button(
+                        "📥 Download Intake Summary",
+                        report,
+                        file_name=f"intake_{case_id or 'new'}_{datetime.now().strftime('%Y%m%d')}.txt",
+                        mime="text/plain"
+                    )
+                else:
+                    st.info("Report generator not available.")
+            else:
+                st.warning("Please enter client name.")
+
+    elif module == "🔎 Document Consistency":
         st.header("Document Consistency Analysis")
 
         st.subheader("Upload Financial Documents")
@@ -317,7 +580,7 @@ def main():
             except json.JSONDecodeError:
                 st.error("Invalid JSON format. Please check your input.")
 
-    elif module == "Hidden Income Detection":
+    elif module == "🕵️ Hidden Income Detection":
         st.header("Hidden Income Detection")
 
         st.info("""
@@ -362,7 +625,7 @@ def main():
             st.write(f"Loaded {len(df)} transactions")
             st.dataframe(df.head())
 
-    elif module == "Full Analysis Report":
+    elif module == "📄 Full Analysis Report":
         st.header("Comprehensive Financial Analysis Report")
 
         st.write("Generate a complete financial analysis report including:")
@@ -809,6 +1072,96 @@ def main():
                                 st.write(f"**Description:** {doc.description}")
                                 if doc.confidential:
                                     st.warning("🔒 Confidential")
+
+    elif module == "⚙️ Settings":
+        st.header("Settings & Configuration")
+
+        if firm_config:
+            st.subheader("Firm Information")
+
+            col1, col2 = st.columns(2)
+
+            with col1:
+                st.text_input("Firm Name", value=firm_config.firm_name, disabled=True)
+                st.text_input("Phone", value=firm_config.phone, disabled=True)
+                st.text_input("Email", value=firm_config.email, disabled=True)
+
+            with col2:
+                st.text_input("Address", value=firm_config.address, disabled=True)
+                st.text_input("Website", value=firm_config.website, disabled=True)
+                st.text_input("Primary Jurisdiction", value=firm_config.primary_jurisdiction, disabled=True)
+
+            st.info("To customize firm settings, edit `firm_config.py`")
+
+            st.markdown("---")
+
+            st.subheader("Practice Areas")
+            for area in firm_config.practice_areas:
+                st.write(f"• {area}")
+
+            st.markdown("---")
+
+            st.subheader("Configured Courts")
+            for court in firm_config.courts:
+                st.write(f"• {court}")
+
+        st.markdown("---")
+
+        st.subheader("System Status")
+
+        col1, col2, col3 = st.columns(3)
+
+        with col1:
+            if OCR_AVAILABLE:
+                st.success("✅ OCR Module")
+            else:
+                st.error("❌ OCR Module")
+
+        with col2:
+            if DRIVE_AVAILABLE:
+                st.success("✅ Google Drive")
+            else:
+                st.error("❌ Google Drive")
+
+        with col3:
+            if FIRM_CONFIG_AVAILABLE:
+                st.success("✅ Firm Config")
+            else:
+                st.error("❌ Firm Config")
+
+        st.markdown("---")
+
+        st.subheader("Nassau County Resources")
+
+        if FIRM_CONFIG_AVAILABLE:
+            st.write(f"**Courthouse:** {NASSAU_COUNTY_CONFIG['courthouse_address']}")
+            st.write(f"**Family Court:** {NASSAU_COUNTY_CONFIG['family_court_address']}")
+
+            st.write("\n**Filing Fees:**")
+            for fee_type, amount in NASSAU_COUNTY_CONFIG['filing_fees'].items():
+                st.write(f"• {fee_type.replace('_', ' ').title()}: ${amount}")
+
+        st.markdown("---")
+
+        st.subheader("About This Tool")
+        st.markdown("""
+        **Financial Document Analysis Tool**
+
+        This tool is designed for family law practitioners to:
+        - Calculate child support and maintenance under NY law
+        - Analyze financial documents for discrepancies
+        - Detect potential hidden income
+        - Manage case documents via Google Drive
+        - Extract text from scanned documents using OCR
+        - Generate professional reports
+
+        **Legal References:**
+        - DRL §240(1-b): Child Support Standards Act
+        - DRL §236(B)(6): Spousal Maintenance
+        - 22 NYCRR §202.16(b): Net Worth Statement Requirements
+
+        **Version:** 2.0 - White Law Group Edition
+        """)
 
 if __name__ == "__main__":
     main()
