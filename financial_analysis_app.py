@@ -18,6 +18,13 @@ try:
 except ImportError:
     DRIVE_AVAILABLE = False
 
+# Optional OCR integration
+try:
+    from ocr_processor import OCRProcessor, create_ocr_processor
+    OCR_AVAILABLE = True
+except ImportError:
+    OCR_AVAILABLE = False
+
 
 def main():
     st.set_page_config(
@@ -43,7 +50,10 @@ def main():
         # Build module list
         modules = ["Support Calculator", "Document Consistency",
                   "Hidden Income Detection", "Full Analysis Report"]
-        
+
+        if OCR_AVAILABLE:
+            modules.append("🔍 OCR Document Scanner")
+
         if DRIVE_AVAILABLE:
             modules.append("📁 Google Drive Manager")
         
@@ -55,6 +65,10 @@ def main():
                 "- DRL §236: Maintenance\n"
                 "- Uniform Rule 202.16(b): Net Worth Statements")
         
+        if OCR_AVAILABLE:
+            st.markdown("---")
+            st.success("✅ OCR Document Recognition Available")
+
         if DRIVE_AVAILABLE:
             st.markdown("---")
             st.success("✅ Google Drive Integration Available")
@@ -386,6 +400,212 @@ def main():
                     file_name="financial_analysis_report.txt",
                     mime="text/plain"
                 )
+
+    elif module == "🔍 OCR Document Scanner":
+        st.header("OCR Document Recognition")
+
+        if not OCR_AVAILABLE:
+            st.error("OCR module not available. Please install required packages.")
+            return
+
+        st.info("""
+        **Upload scanned documents or images to extract text and financial data.**
+
+        Supported formats: PDF, PNG, JPG, JPEG, TIFF, BMP
+
+        The scanner will automatically:
+        - Extract all text from the document
+        - Identify the document type (tax return, bank statement, etc.)
+        - Extract financial amounts with context
+        - Find dates, account numbers, and key values
+        """)
+
+        # Initialize OCR processor
+        if 'ocr_processor' not in st.session_state:
+            try:
+                st.session_state.ocr_processor = create_ocr_processor()
+            except Exception as e:
+                st.error(f"Failed to initialize OCR: {e}")
+                st.info("Make sure Tesseract is installed: `brew install tesseract`")
+                return
+
+        # File upload
+        uploaded_file = st.file_uploader(
+            "Upload document for OCR",
+            type=['pdf', 'png', 'jpg', 'jpeg', 'tiff', 'bmp'],
+            help="Upload a scanned document or image to extract text"
+        )
+
+        if uploaded_file is not None:
+            st.write(f"**File:** {uploaded_file.name} ({uploaded_file.size / 1024:.1f} KB)")
+
+            col1, col2 = st.columns([1, 3])
+
+            with col1:
+                process_btn = st.button("🔍 Process Document", type="primary")
+
+            if process_btn:
+                with st.spinner("Processing document with OCR..."):
+                    try:
+                        # Get file type
+                        file_ext = uploaded_file.name.split('.')[-1].lower()
+
+                        # Process the file
+                        result = st.session_state.ocr_processor.process_bytes(
+                            uploaded_file.read(),
+                            file_ext
+                        )
+
+                        # Store result in session
+                        st.session_state.ocr_result = result
+
+                        st.success(f"✅ Processed {result.pages} page(s) in {result.processing_time:.2f}s")
+
+                    except Exception as e:
+                        st.error(f"Error processing document: {e}")
+
+            # Display results if available
+            if 'ocr_result' in st.session_state and st.session_state.ocr_result:
+                result = st.session_state.ocr_result
+
+                # Results tabs
+                tab1, tab2, tab3, tab4 = st.tabs([
+                    "📄 Extracted Text",
+                    "💰 Financial Data",
+                    "📊 Key Values",
+                    "ℹ️ Document Info"
+                ])
+
+                with tab1:
+                    st.subheader("Extracted Text")
+                    st.text_area(
+                        "Full Text",
+                        result.text,
+                        height=400,
+                        help="Raw text extracted from the document"
+                    )
+
+                    # Download button
+                    st.download_button(
+                        "📥 Download Text",
+                        result.text,
+                        file_name=f"{uploaded_file.name}_extracted.txt",
+                        mime="text/plain"
+                    )
+
+                with tab2:
+                    st.subheader("Extracted Financial Amounts")
+
+                    amounts = result.extracted_data.get('amounts', [])
+
+                    if amounts:
+                        st.write(f"Found **{len(amounts)}** currency amounts:")
+
+                        # Create dataframe for amounts
+                        amounts_df = pd.DataFrame(amounts)
+                        amounts_df = amounts_df.sort_values('value', ascending=False)
+
+                        st.dataframe(
+                            amounts_df,
+                            column_config={
+                                "value": st.column_config.NumberColumn(
+                                    "Amount",
+                                    format="$%.2f"
+                                ),
+                                "formatted": "Original",
+                                "context": "Context"
+                            },
+                            use_container_width=True
+                        )
+
+                        # Summary statistics
+                        col1, col2, col3 = st.columns(3)
+                        with col1:
+                            st.metric("Total", f"${sum(a['value'] for a in amounts):,.2f}")
+                        with col2:
+                            st.metric("Largest", f"${max(a['value'] for a in amounts):,.2f}")
+                        with col3:
+                            st.metric("Count", len(amounts))
+                    else:
+                        st.info("No currency amounts detected in the document.")
+
+                    # Dates
+                    st.subheader("Dates Found")
+                    dates = result.extracted_data.get('dates', [])
+                    if dates:
+                        st.write(", ".join(dates))
+                    else:
+                        st.info("No dates detected.")
+
+                with tab3:
+                    st.subheader("Key-Value Pairs")
+
+                    key_values = result.extracted_data.get('key_values', {})
+
+                    if key_values:
+                        for key, value in key_values.items():
+                            st.write(f"**{key}:** {value}")
+                    else:
+                        st.info("No key-value pairs automatically extracted.")
+
+                    # Account numbers (if found)
+                    accounts = result.extracted_data.get('account_numbers', [])
+                    if accounts:
+                        st.subheader("Account Numbers")
+                        for acc in accounts:
+                            st.code(acc)
+
+                    # Sensitive data warnings
+                    if result.extracted_data.get('ssn_detected'):
+                        st.warning("⚠️ SSN pattern detected in document")
+
+                    if result.extracted_data.get('ein_detected'):
+                        st.warning("⚠️ EIN pattern detected in document")
+
+                with tab4:
+                    st.subheader("Document Information")
+
+                    col1, col2 = st.columns(2)
+
+                    with col1:
+                        doc_type = result.extracted_data.get('document_type', 'unknown')
+                        doc_type_display = doc_type.replace('_', ' ').title()
+
+                        st.metric("Detected Type", doc_type_display)
+                        st.metric("Pages", result.pages)
+                        st.metric("Processing Time", f"{result.processing_time:.2f}s")
+
+                    with col2:
+                        st.metric("OCR Confidence", f"{result.confidence:.1f}%")
+                        st.metric("Text Length", f"{len(result.text):,} chars")
+
+                        emails = result.extracted_data.get('emails', [])
+                        phones = result.extracted_data.get('phone_numbers', [])
+                        st.metric("Emails Found", len(emails))
+                        st.metric("Phone Numbers", len(phones))
+
+                    if result.warnings:
+                        st.subheader("Warnings")
+                        for warning in result.warnings:
+                            st.warning(warning)
+
+                    # Export data as JSON
+                    st.subheader("Export Data")
+                    export_data = {
+                        'document_type': result.extracted_data.get('document_type'),
+                        'amounts': result.extracted_data.get('amounts', []),
+                        'dates': result.extracted_data.get('dates', []),
+                        'key_values': result.extracted_data.get('key_values', {}),
+                        'confidence': result.confidence,
+                        'pages': result.pages
+                    }
+
+                    st.download_button(
+                        "📥 Download Extracted Data (JSON)",
+                        json.dumps(export_data, indent=2),
+                        file_name=f"{uploaded_file.name}_data.json",
+                        mime="application/json"
+                    )
 
     elif module == "📁 Google Drive Manager":
         st.header("Google Drive Document Manager")
