@@ -33,6 +33,13 @@ try:
 except ImportError:
     FIRM_CONFIG_AVAILABLE = False
 
+# Document templates
+try:
+    from document_templates import DocumentTemplates, create_document_templates, PartyInfo, ChildInfo
+    TEMPLATES_AVAILABLE = True
+except ImportError:
+    TEMPLATES_AVAILABLE = False
+
 
 def main():
     # Load firm configuration
@@ -42,6 +49,11 @@ def main():
     else:
         firm_config = None
         report_gen = None
+
+    if TEMPLATES_AVAILABLE:
+        doc_templates = create_document_templates(firm_config)
+    else:
+        doc_templates = None
 
     st.set_page_config(
         page_title=f"Financial Analysis | {firm_config.firm_name if firm_config else 'Family Law'}",
@@ -78,6 +90,9 @@ def main():
         modules = ["📊 Support Calculator", "📋 Case Intake",
                   "🔎 Document Consistency", "🕵️ Hidden Income Detection",
                   "📄 Full Analysis Report"]
+
+        if TEMPLATES_AVAILABLE:
+            modules.append("📝 Document Templates")
 
         if OCR_AVAILABLE:
             modules.append("🔍 OCR Document Scanner")
@@ -663,6 +678,346 @@ def main():
                     file_name="financial_analysis_report.txt",
                     mime="text/plain"
                 )
+
+    elif module == "📝 Document Templates":
+        st.header("Legal Document Templates")
+
+        if not TEMPLATES_AVAILABLE:
+            st.error("Document templates module not available.")
+            return
+
+        st.info("""
+        **Generate professional legal documents based on official NY State court forms.**
+
+        Available templates:
+        - Net Worth Statement (DRL 236)
+        - Verified Complaint for Divorce
+        - Child Support Worksheet (CSSA)
+        - Family Offense Petition (Order of Protection)
+        - Stipulation of Settlement
+        """)
+
+        template_type = st.selectbox(
+            "Select Document Template",
+            ["Net Worth Statement", "Verified Complaint", "Child Support Worksheet",
+             "Family Offense Petition", "Stipulation of Settlement"]
+        )
+
+        st.markdown("---")
+
+        # Common party information
+        st.subheader("Party Information")
+
+        col1, col2 = st.columns(2)
+
+        with col1:
+            st.write("**Party 1 (Plaintiff/Petitioner)**")
+            p1_name = st.text_input("Full Name*", key="p1_name")
+            p1_address = st.text_input("Street Address", key="p1_addr")
+            p1_city = st.text_input("City", value="Woodmere", key="p1_city")
+            p1_state = st.text_input("State", value="NY", key="p1_state")
+            p1_zip = st.text_input("ZIP", key="p1_zip")
+            p1_phone = st.text_input("Phone", key="p1_phone")
+            p1_dob = st.text_input("Date of Birth", key="p1_dob")
+            p1_employer = st.text_input("Employer", key="p1_emp")
+
+        with col2:
+            st.write("**Party 2 (Defendant/Respondent)**")
+            p2_name = st.text_input("Full Name*", key="p2_name")
+            p2_address = st.text_input("Street Address", key="p2_addr")
+            p2_city = st.text_input("City", key="p2_city")
+            p2_state = st.text_input("State", value="NY", key="p2_state")
+            p2_zip = st.text_input("ZIP", key="p2_zip")
+            p2_phone = st.text_input("Phone", key="p2_phone")
+            p2_dob = st.text_input("Date of Birth", key="p2_dob")
+            p2_employer = st.text_input("Employer", key="p2_emp")
+
+        st.markdown("---")
+
+        # Case information
+        st.subheader("Case Information")
+        col1, col2 = st.columns(2)
+
+        with col1:
+            county = st.selectbox(
+                "County",
+                ["Nassau", "Queens", "Kings", "Suffolk", "New York", "Westchester", "Other"]
+            )
+            index_number = st.text_input("Index/Docket Number", placeholder="Leave blank if new case")
+
+        with col2:
+            marriage_date = st.text_input("Date of Marriage", placeholder="MM/DD/YYYY")
+            separation_date = st.text_input("Date of Separation", placeholder="MM/DD/YYYY")
+
+        # Template-specific inputs
+        st.markdown("---")
+
+        if template_type == "Net Worth Statement":
+            st.subheader("Financial Information")
+            st.info("Complete financial details will be added to the template for manual completion.")
+
+            if st.button("📄 Generate Net Worth Statement", type="primary"):
+                if p1_name and p2_name:
+                    party1 = PartyInfo(
+                        name=p1_name, address=p1_address, city=p1_city,
+                        state=p1_state, zip_code=p1_zip, phone=p1_phone,
+                        dob=p1_dob, employer=p1_employer
+                    )
+                    party2 = PartyInfo(
+                        name=p2_name, address=p2_address, city=p2_city,
+                        state=p2_state, zip_code=p2_zip, phone=p2_phone,
+                        dob=p2_dob, employer=p2_employer
+                    )
+
+                    doc = doc_templates.generate_net_worth_statement(
+                        party=party1, spouse=party2, county=county,
+                        index_number=index_number or "_______________",
+                        income_data={}, assets={}, liabilities={}, expenses={}
+                    )
+
+                    st.success("✅ Net Worth Statement Generated!")
+                    st.text_area("Document Preview", doc, height=500)
+                    st.download_button(
+                        "📥 Download Net Worth Statement",
+                        doc,
+                        file_name=f"net_worth_statement_{p1_name.replace(' ', '_')}.txt",
+                        mime="text/plain"
+                    )
+                else:
+                    st.warning("Please enter both party names.")
+
+        elif template_type == "Verified Complaint":
+            st.subheader("Divorce Information")
+
+            marriage_place = st.text_input("Place of Marriage (City, State)")
+
+            grounds = st.selectbox(
+                "Grounds for Divorce",
+                ["Irretrievable Breakdown (DRL §170(7))", "Cruel and Inhuman Treatment",
+                 "Abandonment", "Imprisonment", "Adultery"]
+            )
+
+            has_children = st.checkbox("Children of the marriage")
+            children_data = []
+            if has_children:
+                num_children = st.number_input("Number of children", 1, 10, 1)
+                for i in range(int(num_children)):
+                    with st.expander(f"Child {i+1}"):
+                        c_name = st.text_input("Name", key=f"vc_child_name_{i}")
+                        c_dob = st.text_input("Date of Birth", key=f"vc_child_dob_{i}")
+                        c_age = st.number_input("Age", 0, 21, key=f"vc_child_age_{i}")
+                        c_res = st.selectbox("Resides with", ["Plaintiff", "Defendant", "Both"], key=f"vc_child_res_{i}")
+                        children_data.append(ChildInfo(name=c_name, dob=c_dob, age=c_age, residence=c_res))
+
+            if st.button("📄 Generate Verified Complaint", type="primary"):
+                if p1_name and p2_name:
+                    plaintiff = PartyInfo(
+                        name=p1_name, address=p1_address, city=p1_city,
+                        state=p1_state, zip_code=p1_zip, phone=p1_phone, dob=p1_dob
+                    )
+                    defendant = PartyInfo(
+                        name=p2_name, address=p2_address, city=p2_city,
+                        state=p2_state, zip_code=p2_zip, phone=p2_phone, dob=p2_dob
+                    )
+
+                    doc = doc_templates.generate_verified_complaint(
+                        plaintiff=plaintiff, defendant=defendant, county=county,
+                        marriage_date=marriage_date or "_______________",
+                        marriage_place=marriage_place or "_______________",
+                        separation_date=separation_date or "_______________",
+                        children=children_data, grounds=grounds
+                    )
+
+                    st.success("✅ Verified Complaint Generated!")
+                    st.text_area("Document Preview", doc, height=500)
+                    st.download_button(
+                        "📥 Download Verified Complaint",
+                        doc,
+                        file_name=f"verified_complaint_{p1_name.replace(' ', '_')}.txt",
+                        mime="text/plain"
+                    )
+                else:
+                    st.warning("Please enter both party names.")
+
+        elif template_type == "Child Support Worksheet":
+            st.subheader("Income & Child Information")
+
+            col1, col2 = st.columns(2)
+            with col1:
+                custodial_income = st.number_input("Custodial Parent Income ($)", 0.0, step=1000.0)
+            with col2:
+                non_custodial_income = st.number_input("Non-Custodial Parent Income ($)", 0.0, step=1000.0)
+
+            num_children = st.number_input("Number of Children", 1, 5, 1)
+            children_data = []
+            for i in range(int(num_children)):
+                with st.expander(f"Child {i+1}"):
+                    c_name = st.text_input("Name", key=f"cs_child_name_{i}")
+                    c_dob = st.text_input("Date of Birth", key=f"cs_child_dob_{i}")
+                    c_age = st.number_input("Age", 0, 21, key=f"cs_child_age_{i}")
+                    children_data.append(ChildInfo(name=c_name, dob=c_dob, age=c_age, residence="Custodial Parent"))
+
+            st.subheader("Add-On Expenses (Annual)")
+            col1, col2, col3 = st.columns(3)
+            with col1:
+                childcare = st.number_input("Child Care ($)", 0.0, step=100.0)
+            with col2:
+                health_ins = st.number_input("Health Insurance ($)", 0.0, step=100.0)
+            with col3:
+                education = st.number_input("Education ($)", 0.0, step=100.0)
+
+            if st.button("📄 Generate Child Support Worksheet", type="primary"):
+                if p1_name and p2_name:
+                    custodial = PartyInfo(
+                        name=p1_name, address=p1_address, city=p1_city,
+                        state=p1_state, zip_code=p1_zip, phone=p1_phone
+                    )
+                    non_custodial = PartyInfo(
+                        name=p2_name, address=p2_address, city=p2_city,
+                        state=p2_state, zip_code=p2_zip, phone=p2_phone
+                    )
+
+                    doc = doc_templates.generate_child_support_worksheet(
+                        custodial_parent=custodial, non_custodial_parent=non_custodial,
+                        county=county, children=children_data,
+                        custodial_income=custodial_income, non_custodial_income=non_custodial_income,
+                        childcare_cost=childcare, health_insurance=health_ins, education_cost=education
+                    )
+
+                    st.success("✅ Child Support Worksheet Generated!")
+                    st.text_area("Document Preview", doc, height=500)
+                    st.download_button(
+                        "📥 Download Child Support Worksheet",
+                        doc,
+                        file_name=f"child_support_worksheet_{p1_name.replace(' ', '_')}.txt",
+                        mime="text/plain"
+                    )
+                else:
+                    st.warning("Please enter both party names.")
+
+        elif template_type == "Family Offense Petition":
+            st.subheader("Order of Protection Request")
+
+            st.warning("⚠️ **DOMESTIC VIOLENCE SAFETY NOTICE**: If you are in immediate danger, call 911.")
+
+            relationship = st.selectbox(
+                "Relationship to Respondent",
+                ["Currently Married", "Formerly Married", "Have Child in Common",
+                 "Currently in Intimate Relationship", "Formerly in Intimate Relationship",
+                 "Related by Blood", "Members of Same Household"]
+            )
+
+            st.subheader("Incidents")
+            num_incidents = st.number_input("Number of Incidents to Report", 1, 5, 1)
+            incidents = []
+            for i in range(int(num_incidents)):
+                with st.expander(f"Incident {i+1}"):
+                    inc_date = st.text_input("Date", key=f"inc_date_{i}")
+                    inc_time = st.text_input("Time", key=f"inc_time_{i}")
+                    inc_location = st.text_input("Location", key=f"inc_loc_{i}")
+                    inc_desc = st.text_area("Description", key=f"inc_desc_{i}")
+                    inc_injuries = st.text_input("Injuries (if any)", key=f"inc_inj_{i}")
+                    incidents.append({
+                        "date": inc_date, "time": inc_time, "location": inc_location,
+                        "description": inc_desc, "injuries": inc_injuries
+                    })
+
+            st.subheader("Relief Requested")
+            relief = st.multiselect(
+                "Select all that apply",
+                ["Stay away from Petitioner", "Stay away from home",
+                 "Stay away from workplace", "Stay away from children",
+                 "Refrain from contacting Petitioner", "Surrender firearms",
+                 "Refrain from committing family offenses"]
+            )
+
+            if st.button("📄 Generate Family Offense Petition", type="primary"):
+                if p1_name and p2_name:
+                    petitioner = PartyInfo(
+                        name=p1_name, address=p1_address, city=p1_city,
+                        state=p1_state, zip_code=p1_zip, phone=p1_phone, dob=p1_dob
+                    )
+                    respondent = PartyInfo(
+                        name=p2_name, address=p2_address, city=p2_city,
+                        state=p2_state, zip_code=p2_zip, phone=p2_phone, dob=p2_dob
+                    )
+
+                    doc = doc_templates.generate_family_offense_petition(
+                        petitioner=petitioner, respondent=respondent, county=county,
+                        relationship=relationship, incidents=incidents, relief_requested=relief
+                    )
+
+                    st.success("✅ Family Offense Petition Generated!")
+                    st.text_area("Document Preview", doc, height=500)
+                    st.download_button(
+                        "📥 Download Family Offense Petition",
+                        doc,
+                        file_name=f"family_offense_petition_{p1_name.replace(' ', '_')}.txt",
+                        mime="text/plain"
+                    )
+                else:
+                    st.warning("Please enter both party names.")
+
+        elif template_type == "Stipulation of Settlement":
+            st.subheader("Settlement Terms")
+
+            custody = st.selectbox(
+                "Custody Arrangement",
+                ["Joint Legal and Physical Custody", "Sole Custody to Plaintiff",
+                 "Sole Custody to Defendant", "Joint Legal, Primary Physical to Plaintiff",
+                 "Joint Legal, Primary Physical to Defendant"]
+            )
+
+            col1, col2 = st.columns(2)
+            with col1:
+                child_support = st.number_input("Monthly Child Support ($)", 0.0, step=100.0)
+            with col2:
+                maintenance = st.number_input("Monthly Maintenance ($)", 0.0, step=100.0)
+
+            maintenance_duration = st.text_input("Maintenance Duration", placeholder="e.g., 5 years")
+
+            has_children = st.checkbox("Children of the marriage", key="stip_children")
+            children_data = []
+            if has_children:
+                num_children = st.number_input("Number of children", 1, 10, 1, key="stip_num_children")
+                for i in range(int(num_children)):
+                    with st.expander(f"Child {i+1}"):
+                        c_name = st.text_input("Name", key=f"stip_child_name_{i}")
+                        c_dob = st.text_input("Date of Birth", key=f"stip_child_dob_{i}")
+                        c_age = st.number_input("Age", 0, 21, key=f"stip_child_age_{i}")
+                        children_data.append(ChildInfo(name=c_name, dob=c_dob, age=c_age, residence=""))
+
+            if st.button("📄 Generate Stipulation of Settlement", type="primary"):
+                if p1_name and p2_name:
+                    plaintiff = PartyInfo(
+                        name=p1_name, address=p1_address, city=p1_city,
+                        state=p1_state, zip_code=p1_zip, phone=p1_phone
+                    )
+                    defendant = PartyInfo(
+                        name=p2_name, address=p2_address, city=p2_city,
+                        state=p2_state, zip_code=p2_zip, phone=p2_phone
+                    )
+
+                    doc = doc_templates.generate_stipulation_of_settlement(
+                        plaintiff=plaintiff, defendant=defendant, county=county,
+                        index_number=index_number or "_______________",
+                        marriage_date=marriage_date or "_______________",
+                        children=children_data, custody_arrangement=custody,
+                        child_support_monthly=child_support, maintenance_monthly=maintenance,
+                        maintenance_duration=maintenance_duration or "_______________",
+                        property_division={}
+                    )
+
+                    st.success("✅ Stipulation of Settlement Generated!")
+                    st.text_area("Document Preview", doc, height=500)
+                    st.download_button(
+                        "📥 Download Stipulation of Settlement",
+                        doc,
+                        file_name=f"stipulation_settlement_{p1_name.replace(' ', '_')}.txt",
+                        mime="text/plain"
+                    )
+                else:
+                    st.warning("Please enter both party names.")
 
     elif module == "🔍 OCR Document Scanner":
         st.header("OCR Document Recognition")
