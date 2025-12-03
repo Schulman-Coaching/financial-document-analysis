@@ -96,54 +96,98 @@ def main():
     if 'consistency_analyzer' not in st.session_state:
         st.session_state.consistency_analyzer = FinancialConsistencyAnalyzer()
 
-    # Sidebar for navigation
+    # Sidebar for navigation - Organized by Client Lifecycle
     with st.sidebar:
-        st.header("Analysis Modules")
-        
-        # Build module list
-        modules = ["📊 Support Calculator", "📋 Case Intake",
-                  "🔎 Document Consistency", "🕵️ Hidden Income Detection",
-                  "📄 Full Analysis Report"]
+        st.header("📋 Client Lifecycle")
 
+        # Build module groups by lifecycle stage
+        lifecycle_stages = {}
+
+        # Stage 1: Intake & Engagement
+        lifecycle_stages["1️⃣ INTAKE"] = ["📋 Case Intake"]
         if TEMPLATES_AVAILABLE:
-            modules.append("📝 Document Templates")
+            lifecycle_stages["1️⃣ INTAKE"].extend([
+                "📜 Engagement Letter",
+                "✉️ Welcome Letter"
+            ])
 
+        # Stage 2: Correspondence
+        if TEMPLATES_AVAILABLE:
+            lifecycle_stages["2️⃣ CORRESPONDENCE"] = [
+                "📨 Demand Letter",
+                "📧 Letter to Counsel"
+            ]
+
+        # Stage 3: Pleadings & Filings
+        if TEMPLATES_AVAILABLE:
+            lifecycle_stages["3️⃣ PLEADINGS"] = [
+                "📑 Summons with Notice",
+                "📝 Verified Complaint",
+                "⚖️ Notice of Appearance"
+            ]
+
+        # Stage 4: Financial Analysis
+        lifecycle_stages["4️⃣ FINANCIAL"] = [
+            "📊 Support Calculator",
+            "💰 Net Worth Statement",
+            "👶 Child Support Worksheet",
+            "🔎 Document Consistency",
+            "🕵️ Hidden Income Detection"
+        ]
+
+        # Stage 5: Settlement & Trial
+        if TEMPLATES_AVAILABLE:
+            lifecycle_stages["5️⃣ RESOLUTION"] = [
+                "🤝 Settlement Agreement",
+                "🛡️ Order of Protection"
+            ]
+
+        # Stage 6: Tools & Management
+        lifecycle_stages["6️⃣ TOOLS"] = ["📄 Full Analysis Report"]
         if OCR_AVAILABLE:
-            modules.append("🔍 OCR Document Scanner")
-
+            lifecycle_stages["6️⃣ TOOLS"].append("🔍 OCR Scanner")
         if DRIVE_AVAILABLE:
-            modules.append("📁 Google Drive Manager")
-
+            lifecycle_stages["6️⃣ TOOLS"].append("📁 Google Drive")
         if CASE_MANAGER_AVAILABLE:
-            modules.append("📂 Case Management")
-
+            lifecycle_stages["6️⃣ TOOLS"].append("📂 Case Management")
         if ROI_AVAILABLE:
-            modules.append("📈 ROI Dashboard")
-            modules.append("🎯 Sales Demo")
+            lifecycle_stages["6️⃣ TOOLS"].extend(["📈 ROI Dashboard", "🎯 Sales Demo"])
+        lifecycle_stages["6️⃣ TOOLS"].append("⚙️ Settings")
 
-        modules.append("⚙️ Settings")
-
-        module = st.radio("Select Module:", modules)
+        # Create expandable sections for each stage
+        all_modules = []
+        for stage, modules in lifecycle_stages.items():
+            with st.expander(stage, expanded=(stage == "1️⃣ INTAKE")):
+                for mod in modules:
+                    all_modules.append(mod)
+                    st.write(f"  {mod}")
 
         st.markdown("---")
-        st.info("**NY Law References:**\n"
-                "- DRL §240(1-b): Child Support\n"
-                "- DRL §236: Maintenance\n"
-                "- Uniform Rule 202.16(b): Net Worth Statements")
-        
-        if OCR_AVAILABLE:
-            st.markdown("---")
-            st.success("✅ OCR Document Recognition Available")
+        module = st.selectbox("Quick Select:", all_modules)
 
-        if DRIVE_AVAILABLE:
-            st.markdown("---")
-            st.success("✅ Google Drive Integration Available")
+        st.markdown("---")
+        st.info("**Client Workflow:**\n"
+                "1. Intake → Engagement\n"
+                "2. Correspondence\n"
+                "3. Pleadings & Filings\n"
+                "4. Financial Analysis\n"
+                "5. Settlement/Trial\n"
+                "6. Resolution")
 
-        if CASE_MANAGER_AVAILABLE:
-            st.success("✅ Case Management Available")
-
-        if ROI_AVAILABLE:
-            st.success("✅ ROI Analytics Available")
+        # Status indicators
+        st.markdown("---")
+        st.caption("**System Status**")
+        status_cols = st.columns(2)
+        with status_cols[0]:
+            if TEMPLATES_AVAILABLE:
+                st.success("✅ Templates")
+            if OCR_AVAILABLE:
+                st.success("✅ OCR")
+        with status_cols[1]:
+            if CASE_MANAGER_AVAILABLE:
+                st.success("✅ Cases")
+            if ROI_AVAILABLE:
+                st.success("✅ ROI")
 
     if module == "📊 Support Calculator":
         st.header("NY Support Calculations")
@@ -1046,7 +1090,580 @@ def main():
                 else:
                     st.warning("Please enter both party names.")
 
-    elif module == "🔍 OCR Document Scanner":
+    # ========================================================================
+    # LIFECYCLE STAGE 1: INTAKE & ENGAGEMENT
+    # ========================================================================
+
+    elif module == "📜 Engagement Letter":
+        st.header("📜 Engagement Letter / Retainer Agreement")
+
+        if not TEMPLATES_AVAILABLE:
+            st.error("Document templates module not available.")
+        else:
+            st.info("""
+            **Generate a professional engagement letter that complies with 22 NYCRR Part 1215.**
+
+            This document establishes the attorney-client relationship and outlines:
+            - Scope of representation
+            - Fee structure and retainer requirements
+            - Client responsibilities
+            - Terms of engagement
+            """)
+
+            st.markdown("---")
+
+            col1, col2 = st.columns(2)
+
+            with col1:
+                st.subheader("Client Information")
+                client_name = st.text_input("Client Full Name*", key="eng_client_name")
+                client_address = st.text_input("Street Address*", key="eng_client_addr")
+                client_city = st.text_input("City", value="Woodmere", key="eng_client_city")
+                client_state = st.text_input("State", value="NY", key="eng_client_state")
+                client_zip = st.text_input("ZIP Code", key="eng_client_zip")
+                client_phone = st.text_input("Phone Number", key="eng_client_phone")
+                client_email = st.text_input("Email Address", key="eng_client_email")
+
+            with col2:
+                st.subheader("Case & Fee Information")
+                case_type = st.selectbox(
+                    "Case Type*",
+                    ["Contested Divorce", "Uncontested Divorce", "Child Custody",
+                     "Child Support Modification", "Spousal Maintenance",
+                     "Order of Protection", "Post-Judgment Enforcement"]
+                )
+                retainer_amount = st.number_input("Retainer Amount ($)", 2500.0, 25000.0, 5000.0, 500.0)
+                hourly_rate = st.number_input("Partner Hourly Rate ($)", 250.0, 750.0, 450.0, 25.0)
+
+            st.subheader("Scope of Representation")
+            scope_options = st.multiselect(
+                "Select all services included in this engagement:",
+                [
+                    "Negotiate and prepare a settlement agreement",
+                    "Represent client in divorce proceedings",
+                    "Represent client in custody/visitation matters",
+                    "Represent client in child support proceedings",
+                    "Represent client in spousal maintenance proceedings",
+                    "Prepare and file all necessary court documents",
+                    "Attend all court appearances",
+                    "Conduct discovery and depositions",
+                    "Prepare for and conduct trial if necessary",
+                    "Negotiate and draft stipulation of settlement"
+                ],
+                default=["Represent client in divorce proceedings",
+                        "Prepare and file all necessary court documents",
+                        "Attend all court appearances"]
+            )
+
+            if st.button("📄 Generate Engagement Letter", type="primary"):
+                if client_name and client_address:
+                    client = PartyInfo(
+                        name=client_name, address=client_address, city=client_city,
+                        state=client_state, zip_code=client_zip, phone=client_phone,
+                        email=client_email
+                    )
+
+                    doc = doc_templates.generate_engagement_letter(
+                        client=client,
+                        case_type=case_type,
+                        retainer_amount=retainer_amount,
+                        hourly_rate=hourly_rate,
+                        scope_of_representation=scope_options
+                    )
+
+                    st.success("✅ Engagement Letter Generated!")
+                    st.text_area("Document Preview", doc, height=500)
+                    st.download_button(
+                        "📥 Download Engagement Letter",
+                        doc,
+                        file_name=f"engagement_letter_{client_name.replace(' ', '_')}.txt",
+                        mime="text/plain"
+                    )
+                else:
+                    st.warning("Please enter client name and address.")
+
+    elif module == "✉️ Welcome Letter":
+        st.header("✉️ Initial Client Letter / Welcome Letter")
+
+        if not TEMPLATES_AVAILABLE:
+            st.error("Document templates module not available.")
+        else:
+            st.info("""
+            **Generate a welcome letter for new clients.**
+
+            This letter provides:
+            - Introduction to the legal team
+            - Overview of the case and next steps
+            - List of documents needed from the client
+            - Important reminders and expectations
+            """)
+
+            st.markdown("---")
+
+            col1, col2 = st.columns(2)
+
+            with col1:
+                st.subheader("Client Information")
+                client_name = st.text_input("Client Full Name*", key="wel_client_name")
+                client_address = st.text_input("Street Address*", key="wel_client_addr")
+                client_city = st.text_input("City", value="Woodmere", key="wel_client_city")
+                client_state = st.text_input("State", value="NY", key="wel_client_state")
+                client_zip = st.text_input("ZIP Code", key="wel_client_zip")
+
+            with col2:
+                st.subheader("Case Information")
+                case_type = st.selectbox(
+                    "Case Type*",
+                    ["Divorce", "Child Custody", "Child Support", "Spousal Maintenance",
+                     "Order of Protection", "Post-Judgment Modification"],
+                    key="wel_case_type"
+                )
+
+            st.subheader("Next Steps")
+            next_steps = st.multiselect(
+                "Select the next steps for this client:",
+                [
+                    "Complete and return the Client Intake Form",
+                    "Gather and provide financial documents",
+                    "Schedule follow-up meeting to discuss strategy",
+                    "Prepare Statement of Net Worth",
+                    "File Summons with Notice",
+                    "Serve opposing party with court papers",
+                    "Attend Preliminary Conference",
+                    "Begin discovery process",
+                    "Schedule court appearance"
+                ],
+                default=[
+                    "Complete and return the Client Intake Form",
+                    "Gather and provide financial documents",
+                    "Schedule follow-up meeting to discuss strategy"
+                ]
+            )
+
+            st.subheader("Documents Needed")
+            docs_needed = st.multiselect(
+                "Select documents to request from client:",
+                [
+                    "Last 3 years of tax returns (complete with all schedules)",
+                    "Last 3 months of pay stubs",
+                    "Last 12 months of bank statements (all accounts)",
+                    "Last 12 months of credit card statements",
+                    "Retirement account statements (401k, IRA, pension)",
+                    "Mortgage statement and deed",
+                    "Vehicle titles and loan statements",
+                    "Life insurance policies",
+                    "Health insurance information",
+                    "Marriage certificate",
+                    "Birth certificates for all children",
+                    "Prior court orders (if any)",
+                    "Prenuptial or postnuptial agreement (if any)"
+                ],
+                default=[
+                    "Last 3 years of tax returns (complete with all schedules)",
+                    "Last 3 months of pay stubs",
+                    "Last 12 months of bank statements (all accounts)",
+                    "Marriage certificate"
+                ]
+            )
+
+            if st.button("📄 Generate Welcome Letter", type="primary"):
+                if client_name and client_address:
+                    client = PartyInfo(
+                        name=client_name, address=client_address, city=client_city,
+                        state=client_state, zip_code=client_zip, phone=""
+                    )
+
+                    doc = doc_templates.generate_initial_client_letter(
+                        client=client,
+                        case_type=case_type,
+                        next_steps=next_steps,
+                        documents_needed=docs_needed
+                    )
+
+                    st.success("✅ Welcome Letter Generated!")
+                    st.text_area("Document Preview", doc, height=500)
+                    st.download_button(
+                        "📥 Download Welcome Letter",
+                        doc,
+                        file_name=f"welcome_letter_{client_name.replace(' ', '_')}.txt",
+                        mime="text/plain"
+                    )
+                else:
+                    st.warning("Please enter client name and address.")
+
+    # ========================================================================
+    # LIFECYCLE STAGE 2: CORRESPONDENCE
+    # ========================================================================
+
+    elif module == "📨 Demand Letter":
+        st.header("📨 Initial Demand Letter")
+
+        if not TEMPLATES_AVAILABLE:
+            st.error("Document templates module not available.")
+        else:
+            st.info("""
+            **Generate a demand letter to the opposing party.**
+
+            Use this when:
+            - Client wants to attempt settlement before filing
+            - Need to put opposing party on notice
+            - Requesting specific actions or responses
+            """)
+
+            st.markdown("---")
+
+            col1, col2 = st.columns(2)
+
+            with col1:
+                st.subheader("Our Client")
+                client_name = st.text_input("Client Name*", key="dem_client_name")
+                client_address = st.text_input("Client Address", key="dem_client_addr")
+                client_city = st.text_input("City", key="dem_client_city")
+                client_state = st.text_input("State", value="NY", key="dem_client_state")
+                client_zip = st.text_input("ZIP", key="dem_client_zip")
+
+            with col2:
+                st.subheader("Opposing Party")
+                opp_name = st.text_input("Opposing Party Name*", key="dem_opp_name")
+                opp_address = st.text_input("Opposing Party Address*", key="dem_opp_addr")
+                opp_city = st.text_input("City", key="dem_opp_city")
+                opp_state = st.text_input("State", value="NY", key="dem_opp_state")
+                opp_zip = st.text_input("ZIP", key="dem_opp_zip")
+
+            case_type = st.selectbox(
+                "Matter Type",
+                ["Divorce and Property Division", "Child Custody",
+                 "Child Support Arrears", "Spousal Maintenance",
+                 "Enforcement of Court Order", "Other Family Matter"]
+            )
+
+            st.subheader("Demands")
+            demands = st.multiselect(
+                "Select demands to include:",
+                [
+                    "Immediately cease all contact with our client",
+                    "Provide full financial disclosure within 20 days",
+                    "Pay outstanding child support arrears",
+                    "Pay outstanding maintenance arrears",
+                    "Return marital property in your possession",
+                    "Comply with existing court orders",
+                    "Vacate the marital residence",
+                    "Return children to custodial parent",
+                    "Cease dissipation of marital assets",
+                    "Maintain health insurance coverage",
+                    "Respond to this letter within 20 days"
+                ],
+                default=["Provide full financial disclosure within 20 days",
+                        "Respond to this letter within 20 days"]
+            )
+
+            deadline_days = st.slider("Response Deadline (days)", 10, 30, 20)
+
+            if st.button("📄 Generate Demand Letter", type="primary"):
+                if client_name and opp_name and opp_address:
+                    client = PartyInfo(
+                        name=client_name, address=client_address, city=client_city,
+                        state=client_state, zip_code=client_zip, phone=""
+                    )
+                    opposing = PartyInfo(
+                        name=opp_name, address=opp_address, city=opp_city,
+                        state=opp_state, zip_code=opp_zip, phone=""
+                    )
+
+                    doc = doc_templates.generate_demand_letter(
+                        client=client,
+                        opposing_party=opposing,
+                        case_type=case_type,
+                        demands=demands,
+                        deadline_days=deadline_days
+                    )
+
+                    st.success("✅ Demand Letter Generated!")
+                    st.text_area("Document Preview", doc, height=500)
+                    st.download_button(
+                        "📥 Download Demand Letter",
+                        doc,
+                        file_name=f"demand_letter_{opp_name.replace(' ', '_')}.txt",
+                        mime="text/plain"
+                    )
+                else:
+                    st.warning("Please enter client name and opposing party information.")
+
+    elif module == "📧 Letter to Counsel":
+        st.header("📧 Letter to Opposing Counsel")
+
+        if not TEMPLATES_AVAILABLE:
+            st.error("Document templates module not available.")
+        else:
+            st.info("""
+            **Generate a professional letter to opposing counsel.**
+
+            Use this for:
+            - Initial contact and notice of representation
+            - Discovery requests and scheduling
+            - Settlement discussions
+            - Conference scheduling
+            """)
+
+            st.markdown("---")
+
+            col1, col2 = st.columns(2)
+
+            with col1:
+                st.subheader("Our Client")
+                client_name = st.text_input("Client Name*", key="opp_client_name")
+
+                st.subheader("Opposing Party")
+                opp_name = st.text_input("Opposing Party Name*", key="opp_party_name")
+
+            with col2:
+                st.subheader("Opposing Counsel")
+                opp_attorney = st.text_input("Attorney Name*", key="opp_atty_name")
+                opp_firm = st.text_input("Firm Name", key="opp_firm")
+                opp_firm_addr = st.text_area("Firm Address", key="opp_firm_addr")
+
+            case_type = st.selectbox(
+                "Case Type",
+                ["Divorce", "Custody/Visitation", "Child Support",
+                 "Spousal Maintenance", "Post-Judgment Modification"]
+            )
+            index_number = st.text_input("Index/Docket Number (if assigned)")
+
+            if st.button("📄 Generate Letter to Counsel", type="primary"):
+                if client_name and opp_name and opp_attorney:
+                    client = PartyInfo(
+                        name=client_name, address="", city="", state="NY",
+                        zip_code="", phone=""
+                    )
+                    opposing = PartyInfo(
+                        name=opp_name, address="", city="", state="NY",
+                        zip_code="", phone=""
+                    )
+
+                    doc = doc_templates.generate_opposing_counsel_letter(
+                        client=client,
+                        opposing_party=opposing,
+                        opposing_attorney=opp_attorney,
+                        opposing_firm=opp_firm,
+                        opposing_address=opp_firm_addr,
+                        case_type=case_type,
+                        index_number=index_number
+                    )
+
+                    st.success("✅ Letter to Counsel Generated!")
+                    st.text_area("Document Preview", doc, height=500)
+                    st.download_button(
+                        "📥 Download Letter",
+                        doc,
+                        file_name=f"letter_to_counsel_{opp_attorney.replace(' ', '_')}.txt",
+                        mime="text/plain"
+                    )
+                else:
+                    st.warning("Please enter all required information.")
+
+    # ========================================================================
+    # LIFECYCLE STAGE 3: PLEADINGS & FILINGS
+    # ========================================================================
+
+    elif module == "📑 Summons with Notice":
+        st.header("📑 Summons with Notice")
+
+        if not TEMPLATES_AVAILABLE:
+            st.error("Document templates module not available.")
+        else:
+            st.info("""
+            **Generate a Summons with Notice to commence a divorce action.**
+
+            This document:
+            - Formally commences the divorce action
+            - Notifies defendant of the lawsuit
+            - Includes automatic orders (DRL §236(B)(2)(b))
+            - Specifies relief sought
+            """)
+
+            st.markdown("---")
+
+            col1, col2 = st.columns(2)
+
+            with col1:
+                st.subheader("Plaintiff")
+                plaintiff_name = st.text_input("Plaintiff Name*", key="sum_plaintiff_name")
+                plaintiff_address = st.text_input("Address", key="sum_plaintiff_addr")
+                plaintiff_city = st.text_input("City", key="sum_plaintiff_city")
+                plaintiff_state = st.text_input("State", value="NY", key="sum_plaintiff_state")
+                plaintiff_zip = st.text_input("ZIP", key="sum_plaintiff_zip")
+
+            with col2:
+                st.subheader("Defendant")
+                defendant_name = st.text_input("Defendant Name*", key="sum_defendant_name")
+                defendant_address = st.text_input("Address", key="sum_defendant_addr")
+                defendant_city = st.text_input("City", key="sum_defendant_city")
+                defendant_state = st.text_input("State", value="NY", key="sum_defendant_state")
+                defendant_zip = st.text_input("ZIP", key="sum_defendant_zip")
+
+            county = st.selectbox(
+                "County",
+                ["Nassau", "Suffolk", "Queens", "Kings", "New York", "Bronx",
+                 "Westchester", "Rockland", "Orange", "Dutchess"],
+                key="sum_county"
+            )
+
+            st.subheader("Relief Requested")
+            relief = st.multiselect(
+                "Select all relief sought:",
+                [
+                    "Absolute divorce",
+                    "Equitable distribution of marital property",
+                    "Spousal maintenance",
+                    "Child custody",
+                    "Child support",
+                    "Counsel fees",
+                    "Exclusive use of marital residence"
+                ],
+                default=["Absolute divorce", "Equitable distribution of marital property"]
+            )
+
+            if st.button("📄 Generate Summons with Notice", type="primary"):
+                if plaintiff_name and defendant_name:
+                    plaintiff = PartyInfo(
+                        name=plaintiff_name, address=plaintiff_address, city=plaintiff_city,
+                        state=plaintiff_state, zip_code=plaintiff_zip, phone=""
+                    )
+                    defendant = PartyInfo(
+                        name=defendant_name, address=defendant_address, city=defendant_city,
+                        state=defendant_state, zip_code=defendant_zip, phone=""
+                    )
+
+                    doc = doc_templates.generate_summons_with_notice(
+                        plaintiff=plaintiff,
+                        defendant=defendant,
+                        county=county,
+                        relief_requested=relief
+                    )
+
+                    st.success("✅ Summons with Notice Generated!")
+                    st.text_area("Document Preview", doc, height=500)
+                    st.download_button(
+                        "📥 Download Summons",
+                        doc,
+                        file_name=f"summons_{plaintiff_name.replace(' ', '_')}_v_{defendant_name.replace(' ', '_')}.txt",
+                        mime="text/plain"
+                    )
+                else:
+                    st.warning("Please enter both party names.")
+
+    elif module == "📝 Verified Complaint":
+        st.header("📝 Verified Complaint for Divorce")
+        st.info("Redirecting to Document Templates for Verified Complaint generation...")
+        st.markdown("Use the **📝 Document Templates** section and select **Verified Complaint**")
+
+    elif module == "⚖️ Notice of Appearance":
+        st.header("⚖️ Notice of Appearance")
+
+        if not TEMPLATES_AVAILABLE:
+            st.error("Document templates module not available.")
+        else:
+            st.info("""
+            **Generate a Notice of Appearance for an existing case.**
+
+            Use when:
+            - Entering appearance for a client in pending litigation
+            - Substituting as new counsel
+            - Formalizing representation in court
+            """)
+
+            st.markdown("---")
+
+            col1, col2 = st.columns(2)
+
+            with col1:
+                st.subheader("Our Client")
+                client_name = st.text_input("Client Name*", key="noa_client_name")
+                client_address = st.text_input("Address", key="noa_client_addr")
+                client_city = st.text_input("City", key="noa_client_city")
+                client_state = st.text_input("State", value="NY", key="noa_client_state")
+                client_zip = st.text_input("ZIP", key="noa_client_zip")
+
+            with col2:
+                st.subheader("Opposing Party")
+                opp_name = st.text_input("Opposing Party Name*", key="noa_opp_name")
+
+            col1, col2 = st.columns(2)
+
+            with col1:
+                county = st.selectbox(
+                    "County",
+                    ["Nassau", "Suffolk", "Queens", "Kings", "New York", "Bronx"],
+                    key="noa_county"
+                )
+                index_number = st.text_input("Index Number*", key="noa_index")
+
+            with col2:
+                attorney_name = st.text_input("Appearing Attorney Name*", key="noa_atty")
+
+            if st.button("📄 Generate Notice of Appearance", type="primary"):
+                if client_name and opp_name and index_number and attorney_name:
+                    client = PartyInfo(
+                        name=client_name, address=client_address, city=client_city,
+                        state=client_state, zip_code=client_zip, phone=""
+                    )
+                    opp = PartyInfo(
+                        name=opp_name, address="", city="", state="NY",
+                        zip_code="", phone=""
+                    )
+
+                    doc = doc_templates.generate_notice_of_appearance(
+                        client=client,
+                        opposing_party=opp,
+                        county=county,
+                        index_number=index_number,
+                        attorney_name=attorney_name
+                    )
+
+                    st.success("✅ Notice of Appearance Generated!")
+                    st.text_area("Document Preview", doc, height=400)
+                    st.download_button(
+                        "📥 Download Notice of Appearance",
+                        doc,
+                        file_name=f"notice_of_appearance_{client_name.replace(' ', '_')}.txt",
+                        mime="text/plain"
+                    )
+                else:
+                    st.warning("Please fill in all required fields.")
+
+    # ========================================================================
+    # LIFECYCLE STAGE 4: FINANCIAL ANALYSIS (Mapped to existing templates)
+    # ========================================================================
+
+    elif module == "💰 Net Worth Statement":
+        st.header("💰 Net Worth Statement (DRL §236)")
+        st.info("Redirecting to Document Templates for Net Worth Statement generation...")
+        st.markdown("Use the **📝 Document Templates** section and select **Net Worth Statement**")
+
+    elif module == "👶 Child Support Worksheet":
+        st.header("👶 Child Support Worksheet (CSSA)")
+        st.info("Redirecting to Document Templates for Child Support Worksheet generation...")
+        st.markdown("Use the **📝 Document Templates** section and select **Child Support Worksheet**")
+
+    # ========================================================================
+    # LIFECYCLE STAGE 5: SETTLEMENT & RESOLUTION (Mapped to existing templates)
+    # ========================================================================
+
+    elif module == "🤝 Settlement Agreement":
+        st.header("🤝 Stipulation of Settlement")
+        st.info("Redirecting to Document Templates for Settlement Agreement generation...")
+        st.markdown("Use the **📝 Document Templates** section and select **Stipulation of Settlement**")
+
+    elif module == "🛡️ Order of Protection":
+        st.header("🛡️ Order of Protection Petition")
+        st.info("Redirecting to Document Templates for Order of Protection petition...")
+        st.markdown("Use the **📝 Document Templates** section and select **Family Offense Petition**")
+
+    # ========================================================================
+    # LIFECYCLE STAGE 6: TOOLS - Renamed modules
+    # ========================================================================
+
+    elif module == "🔍 OCR Scanner":
         st.header("OCR Document Recognition")
 
         if not OCR_AVAILABLE:
@@ -1252,7 +1869,7 @@ def main():
                         mime="application/json"
                     )
 
-    elif module == "📁 Google Drive Manager":
+    elif module == "📁 Google Drive" or module == "📁 Google Drive Manager":
         st.header("Google Drive Document Manager")
         
         if not DRIVE_AVAILABLE:

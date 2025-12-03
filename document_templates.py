@@ -1305,6 +1305,850 @@ PREPARED BY:
         return template
 
 
+    def generate_engagement_letter(self,
+                                   client: PartyInfo,
+                                   case_type: str,
+                                   retainer_amount: float,
+                                   hourly_rate: float,
+                                   scope_of_representation: List[str]) -> str:
+        """
+        Generate Attorney-Client Engagement Letter / Retainer Agreement
+        """
+        today = datetime.now().strftime("%B %d, %Y")
+
+        scope_text = "\n".join([f"        • {item}" for item in scope_of_representation])
+
+        template = f"""
+{'=' * 75}
+                        {self.firm_name.upper()}
+                        ATTORNEYS AT LAW
+{'=' * 75}
+
+{self.firm_address}
+{self.firm_phone}
+
+{today}
+
+VIA HAND DELIVERY / EMAIL
+
+{client.name}
+{client.address}
+{client.city}, {client.state} {client.zip_code}
+
+        RE: Engagement Letter and Retainer Agreement
+            Matter: {case_type}
+
+Dear {client.name.split()[0]}:
+
+Thank you for selecting {self.firm_name} to represent you in connection with
+the above-referenced matter. This letter will confirm the terms of our
+engagement and serves as our written retainer agreement as required by
+22 NYCRR Part 1215.
+
+{'=' * 75}
+                    1. SCOPE OF REPRESENTATION
+{'=' * 75}
+
+You have retained this firm to represent you in connection with:
+
+{scope_text}
+
+This representation does NOT include:
+        • Appeals
+        • Enforcement proceedings after final judgment
+        • Modifications after final judgment
+        • Criminal matters
+        • Bankruptcy proceedings
+        • Any matters not specifically listed above
+
+{'=' * 75}
+                    2. LEGAL FEES AND BILLING
+{'=' * 75}
+
+A. RETAINER:
+   You agree to pay a retainer in the amount of ${retainer_amount:,.2f}.
+   This retainer is due upon signing this agreement and is required before
+   we can begin work on your matter.
+
+   The retainer will be deposited into our Attorney Trust Account (IOLA)
+   and will be applied against legal fees and disbursements as they are
+   incurred. You will receive monthly statements showing charges against
+   the retainer.
+
+   If the retainer is exhausted, you agree to replenish it upon request.
+   Any unused portion of the retainer will be refunded to you at the
+   conclusion of the representation.
+
+B. HOURLY RATES:
+   Our current hourly rates are as follows:
+
+   Partners:                    ${hourly_rate:,.2f} per hour
+   Associates:                  ${hourly_rate * 0.75:,.2f} per hour
+   Paralegals:                  ${hourly_rate * 0.40:,.2f} per hour
+   Law Clerks:                  ${hourly_rate * 0.35:,.2f} per hour
+
+   These rates are subject to change with 30 days' written notice.
+
+C. BILLING INCREMENTS:
+   Time is recorded and billed in increments of one-tenth (0.1) of an hour
+   (6 minutes).
+
+D. DISBURSEMENTS:
+   In addition to legal fees, you will be responsible for all costs and
+   disbursements incurred in connection with your matter, including but
+   not limited to:
+
+        • Court filing fees
+        • Process server fees
+        • Deposition transcript costs
+        • Expert witness fees
+        • Photocopying ($.25 per page)
+        • Postage and overnight delivery
+        • Travel expenses
+        • Court reporter fees
+        • Investigation costs
+
+E. BILLING STATEMENTS:
+   You will receive monthly billing statements. Payment is due within
+   30 days of the statement date. Accounts more than 60 days past due
+   may accrue interest at the rate of 1% per month.
+
+{'=' * 75}
+                    3. CLIENT RESPONSIBILITIES
+{'=' * 75}
+
+To enable us to represent you effectively, you agree to:
+
+        • Provide complete and accurate information
+        • Respond promptly to our requests for information or documents
+        • Keep us informed of any changes in your contact information
+        • Attend all court appearances and meetings as required
+        • Pay all fees and costs in a timely manner
+        • Cooperate fully in the preparation of your case
+
+{'=' * 75}
+                    4. COMMUNICATION
+{'=' * 75}
+
+We will keep you informed of significant developments in your case. You
+may contact us by telephone or email during regular business hours.
+We will endeavor to return all calls and emails within 24-48 business hours.
+
+Emergency contact information will be provided for urgent matters that
+arise outside of business hours.
+
+{'=' * 75}
+                    5. NO GUARANTEE OF OUTCOME
+{'=' * 75}
+
+While we will use our best efforts to achieve a favorable outcome, we
+cannot and do not guarantee any particular result. The outcome of any
+legal matter depends on many factors beyond our control, including the
+facts, the law, the judge assigned to the case, and the actions of
+opposing parties.
+
+{'=' * 75}
+                    6. TERMINATION
+{'=' * 75}
+
+Either party may terminate this agreement at any time upon written notice.
+If you terminate our representation, you will remain responsible for all
+fees and costs incurred through the date of termination.
+
+If we determine that we must withdraw from the representation, we will
+give you reasonable notice and take steps to protect your interests,
+including returning your file and assisting in the transfer to new counsel.
+
+{'=' * 75}
+                    7. FILE RETENTION
+{'=' * 75}
+
+Upon conclusion of the matter, your file will be retained for a period
+of seven (7) years, after which it may be destroyed. Original documents
+will be returned to you upon request.
+
+{'=' * 75}
+                    8. ACKNOWLEDGMENT
+{'=' * 75}
+
+By signing below, you acknowledge that:
+
+        • You have read and understand this agreement
+        • You have had the opportunity to ask questions
+        • You agree to the terms set forth herein
+        • You have received a copy of this signed agreement
+
+If these terms are acceptable, please sign and date both copies of this
+letter, retain one copy for your records, and return the other copy to
+us along with your retainer check.
+
+We look forward to working with you and will do everything we can to
+achieve the best possible outcome in your case.
+
+Very truly yours,
+
+{self.firm_name}
+
+
+_________________________________
+Attorney Name, Esq.
+
+
+{'=' * 75}
+                    ACKNOWLEDGMENT AND AGREEMENT
+{'=' * 75}
+
+I, {client.name}, have read and understand this Engagement Letter and
+Retainer Agreement. I agree to the terms set forth herein and acknowledge
+receipt of a copy of this agreement.
+
+
+_________________________________          _______________
+{client.name}                              Date
+
+
+Retainer Amount Enclosed: $_______________
+
+Check Number: _______________
+
+{'=' * 75}
+
+                    22 NYCRR PART 1215 NOTICE
+
+        This law firm is required to provide you with this
+        written letter of engagement pursuant to the rules
+        of the Appellate Division of the Supreme Court.
+
+{'=' * 75}
+"""
+        return template
+
+    def generate_initial_client_letter(self,
+                                       client: PartyInfo,
+                                       case_type: str,
+                                       next_steps: List[str],
+                                       documents_needed: List[str]) -> str:
+        """
+        Generate Initial Client Letter / Welcome Letter
+        """
+        today = datetime.now().strftime("%B %d, %Y")
+
+        next_steps_text = "\n".join([f"        {i+1}. {step}" for i, step in enumerate(next_steps)])
+        docs_text = "\n".join([f"        □ {doc}" for doc in documents_needed])
+
+        template = f"""
+{'=' * 75}
+                        {self.firm_name.upper()}
+                        ATTORNEYS AT LAW
+{'=' * 75}
+
+{self.firm_address}
+{self.firm_phone}
+
+{today}
+
+{client.name}
+{client.address}
+{client.city}, {client.state} {client.zip_code}
+
+        RE: {case_type}
+            Our File No.: _______________
+
+Dear {client.name.split()[0]}:
+
+Welcome to {self.firm_name}. We are pleased to have you as a client and
+are committed to providing you with excellent legal representation.
+
+This letter provides important information about your case and outlines
+the next steps in the process.
+
+{'=' * 75}
+                    YOUR LEGAL TEAM
+{'=' * 75}
+
+Your matter has been assigned to:
+
+        Attorney:           _____________________________, Esq.
+        Paralegal:          _____________________________
+        Direct Line:        _____________________________
+        Email:              _____________________________
+
+Please feel free to contact us with any questions or concerns.
+
+{'=' * 75}
+                    CASE OVERVIEW
+{'=' * 75}
+
+Matter Type:            {case_type}
+Date Opened:            {today}
+Court:                  To be determined
+Index/Docket Number:    To be assigned upon filing
+
+{'=' * 75}
+                    NEXT STEPS
+{'=' * 75}
+
+The following steps will be taken in your matter:
+
+{next_steps_text}
+
+{'=' * 75}
+                    DOCUMENTS NEEDED
+{'=' * 75}
+
+To proceed effectively with your case, we will need the following
+documents. Please provide these at your earliest convenience:
+
+{docs_text}
+
+Please bring original documents if available; we will make copies and
+return the originals to you.
+
+{'=' * 75}
+                    IMPORTANT REMINDERS
+{'=' * 75}
+
+1. COMMUNICATION:
+   • Notify us immediately of any changes to your address, phone number,
+     or email address
+   • Do not communicate with the opposing party about your case
+   • Forward any legal documents you receive to us immediately
+   • Do not post about your case on social media
+
+2. COURT APPEARANCES:
+   • We will notify you of all court dates well in advance
+   • You MUST appear at all scheduled court appearances
+   • Dress professionally and arrive 30 minutes early
+   • Failure to appear may result in default judgment against you
+
+3. FINANCIAL MATTERS:
+   • Do not make major financial decisions without consulting us first
+   • Do not hide, transfer, or dissipate marital assets
+   • Maintain all joint accounts and credit cards as they currently exist
+   • Continue to pay all regular household bills and expenses
+
+4. CHILDREN:
+   • Maintain stability and routine for your children
+   • Do not disparage the other parent in front of the children
+   • Do not interfere with the other parent's time with the children
+   • Document any concerns about the children's welfare
+
+{'=' * 75}
+                    WHAT TO EXPECT
+{'=' * 75}
+
+Depending on the complexity of your case, the process typically takes:
+
+        Uncontested Divorce:        3-6 months
+        Contested Divorce:          9-18 months
+        Custody/Visitation:         6-12 months
+        Child Support:              3-6 months
+        Order of Protection:        Temporary order within days;
+                                    Final hearing within weeks
+
+These are estimates only. Every case is unique, and actual timeframes
+may vary based on court schedules, the cooperation of the parties, and
+other factors.
+
+{'=' * 75}
+                    OUR COMMITMENT TO YOU
+{'=' * 75}
+
+We understand that this is a difficult time for you and your family.
+Our firm is committed to:
+
+        • Treating you with respect and compassion
+        • Keeping you informed about your case
+        • Responding to your calls and emails promptly
+        • Advocating zealously on your behalf
+        • Working toward the best possible outcome
+
+{'=' * 75}
+
+If you have any questions about this letter or your case, please do not
+hesitate to contact us. We look forward to working with you.
+
+Very truly yours,
+
+{self.firm_name}
+
+
+_________________________________
+Attorney Name, Esq.
+
+
+Enclosures:
+        □ Engagement Letter and Retainer Agreement
+        □ Client Intake Form
+        □ Authorization for Release of Information
+        □ Fee Schedule
+
+{'=' * 75}
+"""
+        return template
+
+    def generate_demand_letter(self,
+                               client: PartyInfo,
+                               opposing_party: PartyInfo,
+                               case_type: str,
+                               demands: List[str],
+                               deadline_days: int = 20) -> str:
+        """
+        Generate Initial Demand Letter to Opposing Party
+        """
+        today = datetime.now().strftime("%B %d, %Y")
+
+        demands_text = "\n".join([f"        {i+1}. {demand}" for i, demand in enumerate(demands)])
+
+        template = f"""
+{'=' * 75}
+                        {self.firm_name.upper()}
+                        ATTORNEYS AT LAW
+{'=' * 75}
+
+{self.firm_address}
+{self.firm_phone}
+
+{today}
+
+VIA CERTIFIED MAIL, RETURN RECEIPT REQUESTED
+
+{opposing_party.name}
+{opposing_party.address}
+{opposing_party.city}, {opposing_party.state} {opposing_party.zip_code}
+
+        RE: {case_type}
+            Our Client: {client.name}
+
+Dear {opposing_party.name.split()[-1]}:
+
+Please be advised that this firm represents {client.name} in connection
+with the above-referenced matter. All future communications regarding
+this matter should be directed to this office. Please do not contact
+our client directly.
+
+{'=' * 75}
+                    STATEMENT OF FACTS
+{'=' * 75}
+
+[Insert relevant facts of the case]
+
+{'=' * 75}
+                    DEMANDS
+{'=' * 75}
+
+On behalf of our client, we hereby demand the following:
+
+{demands_text}
+
+{'=' * 75}
+                    RESPONSE REQUIRED
+{'=' * 75}
+
+Please respond to this letter within {deadline_days} days of receipt.
+If we do not receive a satisfactory response by that time, we are
+authorized to commence legal proceedings without further notice.
+
+We believe it is in both parties' best interest to resolve this matter
+amicably and without the expense and uncertainty of litigation. To that
+end, we invite you or your attorney to contact us to discuss settlement
+options.
+
+{'=' * 75}
+                    PRESERVATION OF EVIDENCE
+{'=' * 75}
+
+You are hereby placed on notice to preserve all documents, records,
+communications, and other evidence related to this matter. This includes,
+but is not limited to:
+
+        • Financial records (bank statements, tax returns, pay stubs)
+        • Communications (emails, text messages, letters)
+        • Photographs and videos
+        • Social media posts
+        • Electronic data
+
+Destruction or spoliation of evidence may result in sanctions and
+adverse inferences in any legal proceedings.
+
+{'=' * 75}
+                    STATUTE OF LIMITATIONS
+{'=' * 75}
+
+Please be advised that various statutes of limitations may apply to
+claims arising from this matter. This letter is not intended to waive
+or extend any applicable limitation periods. All rights are expressly
+reserved.
+
+{'=' * 75}
+
+This letter is written in an effort to resolve this dispute without
+litigation. It is not intended to be a complete recitation of all facts,
+claims, or defenses, all of which are expressly reserved.
+
+We look forward to your prompt response.
+
+Very truly yours,
+
+{self.firm_name}
+
+
+_________________________________
+Attorney Name, Esq.
+
+cc: {client.name} (via email)
+
+{'=' * 75}
+"""
+        return template
+
+    def generate_opposing_counsel_letter(self,
+                                         client: PartyInfo,
+                                         opposing_party: PartyInfo,
+                                         opposing_attorney: str,
+                                         opposing_firm: str,
+                                         opposing_address: str,
+                                         case_type: str,
+                                         index_number: str = "") -> str:
+        """
+        Generate Letter to Opposing Counsel
+        """
+        today = datetime.now().strftime("%B %d, %Y")
+
+        template = f"""
+{'=' * 75}
+                        {self.firm_name.upper()}
+                        ATTORNEYS AT LAW
+{'=' * 75}
+
+{self.firm_address}
+{self.firm_phone}
+
+{today}
+
+VIA EMAIL AND FIRST CLASS MAIL
+
+{opposing_attorney}, Esq.
+{opposing_firm}
+{opposing_address}
+
+        RE: {client.name} v. {opposing_party.name}
+            Index No.: {index_number if index_number else "Not Yet Assigned"}
+
+Dear Counselor:
+
+Please be advised that this firm has been retained to represent
+{client.name} in connection with the above-referenced matter.
+
+Kindly direct all future communications regarding this case to my
+attention. Please confirm your representation of {opposing_party.name}
+at your earliest convenience.
+
+{'=' * 75}
+                    PRELIMINARY CONFERENCE
+{'=' * 75}
+
+[ ] We have not yet filed the action. We would like to explore the
+    possibility of settlement before commencing litigation.
+
+[ ] We have filed the action. A Preliminary Conference has been
+    scheduled for _____________ at _____________.
+
+[ ] The Preliminary Conference is yet to be scheduled. We will
+    notify you once we receive a date from the court.
+
+{'=' * 75}
+                    DISCOVERY
+{'=' * 75}
+
+[ ] Enclosed please find our client's Statement of Net Worth and
+    supporting documentation. Please provide your client's Net Worth
+    Statement and supporting documentation within 20 days.
+
+[ ] We request that you provide us with your client's Statement of
+    Net Worth and supporting documentation pursuant to 22 NYCRR 202.16(b).
+
+[ ] We are preparing discovery demands and will forward them to you
+    shortly.
+
+{'=' * 75}
+                    TEMPORARY RELIEF
+{'=' * 75}
+
+[ ] Our client intends to file a motion for pendente lite relief,
+    including [child support / maintenance / counsel fees / exclusive
+    occupancy]. We would prefer to reach a temporary agreement without
+    motion practice if possible.
+
+[ ] We are open to discussing temporary arrangements to maintain the
+    status quo during the pendency of this action.
+
+{'=' * 75}
+                    SETTLEMENT
+{'=' * 75}
+
+[ ] Our client is interested in exploring settlement. Please let us
+    know if your client is amenable to a four-way conference.
+
+[ ] We believe this matter is appropriate for mediation. Please advise
+    if your client would be willing to participate in mediation.
+
+[ ] Our client is prepared to proceed to trial if a fair settlement
+    cannot be reached.
+
+{'=' * 75}
+
+Please contact me at your earliest convenience to discuss how we can
+move this matter forward efficiently.
+
+Very truly yours,
+
+{self.firm_name}
+
+
+_________________________________
+Attorney Name, Esq.
+
+cc: {client.name} (via email)
+
+Enclosures: [ ] Statement of Net Worth
+            [ ] Supporting Documentation
+            [ ] ______________
+
+{'=' * 75}
+"""
+        return template
+
+    def generate_notice_of_appearance(self,
+                                      client: PartyInfo,
+                                      opposing_party: PartyInfo,
+                                      county: str,
+                                      index_number: str,
+                                      attorney_name: str) -> str:
+        """
+        Generate Notice of Appearance
+        """
+        today = datetime.now().strftime("%B %d, %Y")
+
+        template = f"""
+{'=' * 75}
+                    SUPREME COURT OF THE STATE OF NEW YORK
+                           COUNTY OF {county.upper()}
+{'=' * 75}
+
+{client.name},
+                                                    Plaintiff,
+        -against-                                   Index No.: {index_number}
+
+{opposing_party.name},
+                                                    Defendant.
+{'=' * 75}
+
+                         NOTICE OF APPEARANCE
+
+{'=' * 75}
+
+PLEASE TAKE NOTICE that the undersigned attorney hereby appears on
+behalf of the [Plaintiff / Defendant], {client.name}, in the
+above-entitled action.
+
+All papers and pleadings in this action may be served upon the
+undersigned at the address set forth below.
+
+
+Dated: {today}
+
+                                        {self.firm_name}
+                                        Attorneys for [Plaintiff/Defendant]
+
+
+                                        By: _________________________
+                                            {attorney_name}, Esq.
+
+                                        {self.firm_address}
+                                        {self.firm_phone}
+
+
+TO:     [Opposing Counsel Name], Esq.
+        [Opposing Firm Name]
+        [Opposing Firm Address]
+        Attorneys for [Plaintiff/Defendant]
+
+{'=' * 75}
+"""
+        return template
+
+    def generate_summons_with_notice(self,
+                                    plaintiff: PartyInfo,
+                                    defendant: PartyInfo,
+                                    county: str,
+                                    relief_requested: List[str]) -> str:
+        """
+        Generate Summons with Notice for Divorce
+        """
+        today = datetime.now().strftime("%B %d, %Y")
+
+        relief_text = "\n".join([f"        [ ] {relief}" for relief in relief_requested])
+
+        template = f"""
+{'=' * 75}
+                    SUPREME COURT OF THE STATE OF NEW YORK
+                           COUNTY OF {county.upper()}
+{'=' * 75}
+
+{plaintiff.name},
+                                                    Plaintiff,
+        -against-                                   Index No.: _______________
+
+{defendant.name},
+                                                    Defendant.
+{'=' * 75}
+
+                         SUMMONS WITH NOTICE
+
+{'=' * 75}
+
+ACTION FOR DIVORCE
+
+To the above-named Defendant:
+
+YOU ARE HEREBY SUMMONED to serve a notice of appearance on the
+Plaintiff's attorney within twenty (20) days after the service of
+this summons, exclusive of the day of service (or within thirty (30)
+days after the service is complete if this summons is not personally
+delivered to you within the State of New York); and in case of your
+failure to appear, judgment will be taken against you by default for
+the relief demanded in the notice set forth below.
+
+Dated: {today}
+
+                                        {self.firm_name}
+                                        Attorneys for Plaintiff
+
+                                        By: _________________________
+
+                                        {self.firm_address}
+                                        {self.firm_phone}
+
+
+{'=' * 75}
+                              NOTICE
+{'=' * 75}
+
+The nature of this action is to dissolve the marriage between the
+parties on the grounds of:
+
+        [X] The relationship between husband and wife has broken down
+            irretrievably for a period of at least six months
+            (DRL §170(7) - Irretrievable Breakdown)
+
+        [ ] Other grounds: _________________________________
+
+The relief sought is:
+
+{relief_text}
+
+        [ ] A judgment of absolute divorce in favor of the Plaintiff
+            dissolving the marriage between the parties
+
+        [ ] Equitable distribution of marital property pursuant to
+            DRL §236(B)(5)
+
+        [ ] Maintenance/Spousal Support pursuant to DRL §236(B)(6)
+
+        [ ] Child custody and visitation
+
+        [ ] Child support pursuant to DRL §240
+
+        [ ] Counsel fees and expenses
+
+        [ ] Exclusive use and occupancy of the marital residence
+
+        [ ] Such other and further relief as the Court deems just
+            and proper
+
+
+{'=' * 75}
+                    NOTICE OF AUTOMATIC ORDERS
+                      (DRL §236(B)(2)(b))
+{'=' * 75}
+
+PURSUANT TO DOMESTIC RELATIONS LAW §236(B)(2)(b), UPON SERVICE OF
+THIS SUMMONS, THE FOLLOWING AUTOMATIC ORDERS SHALL BE IN EFFECT
+AGAINST BOTH PARTIES UNTIL THE FINAL JUDGMENT IS ENTERED OR THE
+ACTION IS DISMISSED:
+
+(1) Neither party shall sell, transfer, encumber, conceal, assign,
+    remove or in any way dispose of, without the consent of the
+    other party in writing, or by order of the court, any property
+    (including, but not limited to, real estate, personal property,
+    cash accounts, stocks, mutual funds, bank accounts, cars and
+    boats) individually or jointly held by the parties, except in
+    the usual course of business, for customary and usual household
+    expenses or for reasonable attorney's fees in connection with
+    this action.
+
+(2) Neither party shall transfer, encumber, assign, remove, withdraw
+    or in any way dispose of any tax deferred funds, stocks or other
+    assets held in any individual retirement accounts, 401K accounts,
+    profit sharing plans, Keogh accounts, or any other pension or
+    retirement account, and the parties shall further refrain from
+    applying for or requesting the payment of retirement benefits or
+    annuity payments of any kind, without the consent of the other
+    party in writing, or upon further order of the court.
+
+(3) Neither party shall incur unreasonable debts hereafter, including,
+    but not limited to, further borrowing against any credit line
+    secured by the family residence, further ## encumbering any assets,
+    or unreasonably using credit cards or cash advances against credit
+    cards, except in the usual course of business or for customary or
+    usual household expenses, or for reasonable attorney's fees in
+    connection with this action.
+
+(4) Neither party shall cause the other party or the children of the
+    marriage to be removed from any existing medical, hospital and
+    dental insurance coverage, and each party shall maintain the
+    existing medical, hospital and dental insurance coverage in full
+    force and effect.
+
+(5) Neither party shall change the beneficiaries of any existing life
+    insurance policies, and each party shall maintain the existing life
+    insurance, automobile insurance, homeowner's and renter's insurance
+    policies in full force and effect.
+
+{'=' * 75}
+                    NOTICE OF GUIDELINE MAINTENANCE
+                        (DRL §236(B)(6))
+{'=' * 75}
+
+The maintenance guideline obligation is computed pursuant to a formula
+set forth in Domestic Relations Law §236(B)(6). For more information,
+visit: www.nycourts.gov/divorce
+
+{'=' * 75}
+                    NOTICE CONCERNING CONTINUATION
+                    OF HEALTH CARE COVERAGE
+{'=' * 75}
+
+Pursuant to DRL §255, please take notice that upon the entry of a
+judgment of divorce, the non-titled spouse may no longer be allowed to
+receive health coverage under the titled spouse's employer-provided
+group insurance. The non-titled spouse may be entitled to purchase
+COBRA continuation coverage at the group rate for a limited period.
+
+{'=' * 75}
+
+                                        {self.firm_name}
+                                        Attorneys for Plaintiff
+
+                                        {self.firm_address}
+                                        {self.firm_phone}
+
+{'=' * 75}
+"""
+        return template
+
+
 def create_document_templates(firm_config=None) -> DocumentTemplates:
     """Factory function to create document templates"""
     if firm_config:
